@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../services/auth_service.dart';
 import 'dashboard_screen.dart';
 import '../live/live_operations_screen.dart';
+import '../bookings/bookings_screen.dart';
 
 class AdminShell extends StatefulWidget {
   const AdminShell({super.key});
@@ -92,9 +93,7 @@ class _AdminShellState extends State<AdminShell> {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isMobile = constraints.maxWidth < 900;
-
-        if (isMobile) {
+        if (constraints.maxWidth < 900) {
           return _buildMobileLayout();
         }
 
@@ -103,9 +102,7 @@ class _AdminShellState extends State<AdminShell> {
     );
   }
 
-  // ============================================================
-  // DESKTOP
-  // ============================================================
+  // DESKTOP LAYOUT
 
   Widget _buildDesktopLayout() {
     return Scaffold(
@@ -127,9 +124,7 @@ class _AdminShellState extends State<AdminShell> {
     );
   }
 
-  // ============================================================
-  // MOBILE
-  // ============================================================
+  // MOBILE LAYOUT
 
   Widget _buildMobileLayout() {
     return Scaffold(
@@ -146,9 +141,7 @@ class _AdminShellState extends State<AdminShell> {
         actions: [
           IconButton(
             onPressed: () {},
-            icon: const Icon(
-              Icons.notifications_none,
-            ),
+            icon: const Icon(Icons.notifications_none),
           ),
         ],
       ),
@@ -162,9 +155,7 @@ class _AdminShellState extends State<AdminShell> {
     );
   }
 
-  // ============================================================
-  // SIDEBAR
-  // ============================================================
+  // DESKTOP SIDEBAR
 
   Widget _buildSidebar() {
     return Container(
@@ -181,11 +172,9 @@ class _AdminShellState extends State<AdminShell> {
         child: Column(
           children: [
             const SizedBox(height: 24),
-
             Row(
               children: [
                 const SizedBox(width: 20),
-
                 Container(
                   width: 42,
                   height: 42,
@@ -203,9 +192,7 @@ class _AdminShellState extends State<AdminShell> {
                     ),
                   ),
                 ),
-
                 const SizedBox(width: 12),
-
                 const Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -229,9 +216,7 @@ class _AdminShellState extends State<AdminShell> {
                 ),
               ],
             ),
-
             const SizedBox(height: 30),
-
             Expanded(
               child: ListView.builder(
                 padding: const EdgeInsets.symmetric(
@@ -243,9 +228,7 @@ class _AdminShellState extends State<AdminShell> {
                   final selected = _selectedIndex == index;
 
                   return Padding(
-                    padding: const EdgeInsets.only(
-                      bottom: 4,
-                    ),
+                    padding: const EdgeInsets.only(bottom: 4),
                     child: ListTile(
                       selected: selected,
                       selectedTileColor:
@@ -282,15 +265,12 @@ class _AdminShellState extends State<AdminShell> {
                 },
               ),
             ),
-
             const Divider(height: 1),
-
             ListTile(
               leading: const Icon(Icons.logout),
               title: const Text('Logout'),
               onTap: _logout,
             ),
-
             const SizedBox(height: 8),
           ],
         ),
@@ -298,15 +278,12 @@ class _AdminShellState extends State<AdminShell> {
     );
   }
 
-  // ============================================================
   // MOBILE DRAWER
-  // ============================================================
 
   Widget _buildDrawerContent() {
     return Column(
       children: [
         const SizedBox(height: 24),
-
         Container(
           width: 52,
           height: 52,
@@ -324,9 +301,7 @@ class _AdminShellState extends State<AdminShell> {
             ),
           ),
         ),
-
         const SizedBox(height: 12),
-
         const Text(
           'DOJO WALK',
           style: TextStyle(
@@ -334,7 +309,6 @@ class _AdminShellState extends State<AdminShell> {
             fontWeight: FontWeight.w800,
           ),
         ),
-
         const Text(
           'ADMIN',
           style: TextStyle(
@@ -344,9 +318,7 @@ class _AdminShellState extends State<AdminShell> {
             fontWeight: FontWeight.w700,
           ),
         ),
-
         const SizedBox(height: 24),
-
         Expanded(
           child: ListView.builder(
             itemCount: _menuItems.length,
@@ -380,37 +352,29 @@ class _AdminShellState extends State<AdminShell> {
                   setState(() {
                     _selectedIndex = index;
                   });
-
                   Navigator.pop(context);
                 },
               );
             },
           ),
         ),
-
         const Divider(height: 1),
-
         ListTile(
           leading: const Icon(Icons.logout),
           title: const Text('Logout'),
           onTap: _logout,
         ),
-
         const SizedBox(height: 8),
       ],
     );
   }
 
-  // ============================================================
   // TOP BAR
-  // ============================================================
 
   Widget _buildTopBar() {
     return Container(
       height: 72,
-      padding: const EdgeInsets.symmetric(
-        horizontal: 28,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 28),
       decoration: const BoxDecoration(
         color: Colors.white,
         border: Border(
@@ -428,35 +392,25 @@ class _AdminShellState extends State<AdminShell> {
               fontWeight: FontWeight.w700,
             ),
           ),
-
           const Spacer(),
-
           IconButton(
             onPressed: () {},
-            icon: const Icon(
-              Icons.notifications_none,
-            ),
+            icon: const Icon(Icons.notifications_none),
           ),
-
           const SizedBox(width: 12),
-
-          CircleAvatar(
+          const CircleAvatar(
             radius: 18,
-            backgroundColor:
-                const Color(0xFFFF6A00),
-            child: const Icon(
+            backgroundColor: Color(0xFFFF6A00),
+            child: Icon(
               Icons.person,
               color: Colors.white,
               size: 20,
             ),
           ),
-
           const SizedBox(width: 10),
-
           Flexible(
             child: Text(
-              FirebaseAuth.instance.currentUser?.email ??
-                  'Admin',
+              FirebaseAuth.instance.currentUser?.email ?? 'Admin',
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 fontWeight: FontWeight.w600,
@@ -468,22 +422,21 @@ class _AdminShellState extends State<AdminShell> {
     );
   }
 
-  // ============================================================
   // CONTENT ROUTER
-  // ============================================================
 
   Widget _buildContent() {
-    // Dashboard
     if (_selectedIndex == 0) {
       return const DashboardScreen();
     }
 
-    // Live Operations
     if (_selectedIndex == 1) {
       return const LiveOperationsScreen();
     }
 
-    // Other screens - temporary
+    if (_selectedIndex == 2) {
+      return const BookingsScreen();
+    }
+
     return Container(
       width: double.infinity,
       color: const Color(0xFFF7F7F7),
@@ -501,9 +454,7 @@ class _AdminShellState extends State<AdminShell> {
     );
   }
 
-  // ============================================================
   // MOBILE BOTTOM NAVIGATION
-  // ============================================================
 
   Widget _buildMobileBottomBar() {
     final items = [
@@ -513,11 +464,10 @@ class _AdminShellState extends State<AdminShell> {
       _menuItems[3],
     ];
 
-    int selectedIndex = 0;
-
-    if (_selectedIndex >= 0 && _selectedIndex <= 3) {
-      selectedIndex = _selectedIndex;
-    }
+    final selectedIndex =
+        _selectedIndex >= 0 && _selectedIndex <= 3
+            ? _selectedIndex
+            : 0;
 
     return NavigationBar(
       selectedIndex: selectedIndex,
@@ -526,22 +476,16 @@ class _AdminShellState extends State<AdminShell> {
           _selectedIndex = index;
         });
       },
-      destinations: items.map(
-        (item) {
-          return NavigationDestination(
-            icon: Icon(item.icon),
-            selectedIcon: Icon(item.icon),
-            label: item.title,
-          );
-        },
-      ).toList(),
+      destinations: items.map((item) {
+        return NavigationDestination(
+          icon: Icon(item.icon),
+          selectedIcon: Icon(item.icon),
+          label: item.title,
+        );
+      }).toList(),
     );
   }
 }
-
-// ============================================================
-// MENU ITEM
-// ============================================================
 
 class _AdminMenuItem {
   final String title;
