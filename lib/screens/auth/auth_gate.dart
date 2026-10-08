@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import 'admin_login_screen.dart';
+import '../dashboard/admin_shell.dart';
 
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key});
@@ -59,29 +60,10 @@ class AuthGate extends StatelessWidget {
               return const AdminLoginScreen();
             }
 
-            return const _AdminReadyScreen();
+            return const AdminShell();
           },
         );
       },
-    );
-  }
-}
-
-class _AdminReadyScreen extends StatelessWidget {
-  const _AdminReadyScreen();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(
-        child: Text(
-          'DOJO WALK ADMIN',
-          style: TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-      ),
     );
   }
 }
