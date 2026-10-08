@@ -1,8 +1,9 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../services/auth_service.dart';
 import 'dashboard_screen.dart';
+import '../live/live_operations_screen.dart';
 
 class AdminShell extends StatefulWidget {
   const AdminShell({super.key});
@@ -91,7 +92,7 @@ class _AdminShellState extends State<AdminShell> {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final bool isMobile = constraints.maxWidth < 900;
+        final isMobile = constraints.maxWidth < 900;
 
         if (isMobile) {
           return _buildMobileLayout();
@@ -149,7 +150,6 @@ class _AdminShellState extends State<AdminShell> {
               Icons.notifications_none,
             ),
           ),
-          const SizedBox(width: 4),
         ],
       ),
       drawer: Drawer(
@@ -163,7 +163,7 @@ class _AdminShellState extends State<AdminShell> {
   }
 
   // ============================================================
-  // DESKTOP SIDEBAR
+  // SIDEBAR
   // ============================================================
 
   Widget _buildSidebar() {
@@ -182,7 +182,6 @@ class _AdminShellState extends State<AdminShell> {
           children: [
             const SizedBox(height: 24),
 
-            // LOGO
             Row(
               children: [
                 const SizedBox(width: 20),
@@ -233,7 +232,6 @@ class _AdminShellState extends State<AdminShell> {
 
             const SizedBox(height: 30),
 
-            // MENU
             Expanded(
               child: ListView.builder(
                 padding: const EdgeInsets.symmetric(
@@ -242,8 +240,7 @@ class _AdminShellState extends State<AdminShell> {
                 itemCount: _menuItems.length,
                 itemBuilder: (context, index) {
                   final item = _menuItems[index];
-                  final bool selected =
-                      _selectedIndex == index;
+                  final selected = _selectedIndex == index;
 
                   return Padding(
                     padding: const EdgeInsets.only(
@@ -288,14 +285,9 @@ class _AdminShellState extends State<AdminShell> {
 
             const Divider(height: 1),
 
-            // LOGOUT
             ListTile(
-              leading: const Icon(
-                Icons.logout,
-              ),
-              title: const Text(
-                'Logout',
-              ),
+              leading: const Icon(Icons.logout),
+              title: const Text('Logout'),
               onTap: _logout,
             ),
 
@@ -315,7 +307,6 @@ class _AdminShellState extends State<AdminShell> {
       children: [
         const SizedBox(height: 24),
 
-        // LOGO
         Container(
           width: 52,
           height: 52,
@@ -361,26 +352,26 @@ class _AdminShellState extends State<AdminShell> {
             itemCount: _menuItems.length,
             itemBuilder: (context, index) {
               final item = _menuItems[index];
+              final selected = _selectedIndex == index;
 
               return ListTile(
-                selected: _selectedIndex == index,
+                selected: selected,
                 selectedTileColor:
                     const Color(0xFFFF6A00)
                         .withValues(alpha: 0.10),
                 leading: Icon(
                   item.icon,
-                  color: _selectedIndex == index
+                  color: selected
                       ? const Color(0xFFFF6A00)
                       : Colors.grey.shade700,
                 ),
                 title: Text(
                   item.title,
                   style: TextStyle(
-                    fontWeight:
-                        _selectedIndex == index
-                            ? FontWeight.w700
-                            : FontWeight.w500,
-                    color: _selectedIndex == index
+                    fontWeight: selected
+                        ? FontWeight.w700
+                        : FontWeight.w500,
+                    color: selected
                         ? const Color(0xFFFF6A00)
                         : Colors.grey.shade800,
                   ),
@@ -400,12 +391,8 @@ class _AdminShellState extends State<AdminShell> {
         const Divider(height: 1),
 
         ListTile(
-          leading: const Icon(
-            Icons.logout,
-          ),
-          title: const Text(
-            'Logout',
-          ),
+          leading: const Icon(Icons.logout),
+          title: const Text('Logout'),
           onTap: _logout,
         ),
 
@@ -419,9 +406,6 @@ class _AdminShellState extends State<AdminShell> {
   // ============================================================
 
   Widget _buildTopBar() {
-    final User? user =
-        FirebaseAuth.instance.currentUser;
-
     return Container(
       height: 72,
       padding: const EdgeInsets.symmetric(
@@ -447,7 +431,6 @@ class _AdminShellState extends State<AdminShell> {
 
           const Spacer(),
 
-          // NOTIFICATION
           IconButton(
             onPressed: () {},
             icon: const Icon(
@@ -457,7 +440,6 @@ class _AdminShellState extends State<AdminShell> {
 
           const SizedBox(width: 12),
 
-          // ADMIN AVATAR
           CircleAvatar(
             radius: 18,
             backgroundColor:
@@ -471,13 +453,10 @@ class _AdminShellState extends State<AdminShell> {
 
           const SizedBox(width: 10),
 
-          // EMAIL
-          ConstrainedBox(
-            constraints: const BoxConstraints(
-              maxWidth: 220,
-            ),
+          Flexible(
             child: Text(
-              user?.email ?? 'Admin',
+              FirebaseAuth.instance.currentUser?.email ??
+                  'Admin',
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 fontWeight: FontWeight.w600,
@@ -490,14 +469,21 @@ class _AdminShellState extends State<AdminShell> {
   }
 
   // ============================================================
-  // CONTENT
+  // CONTENT ROUTER
   // ============================================================
 
   Widget _buildContent() {
+    // Dashboard
     if (_selectedIndex == 0) {
       return const DashboardScreen();
     }
 
+    // Live Operations
+    if (_selectedIndex == 1) {
+      return const LiveOperationsScreen();
+    }
+
+    // Other screens - temporary
     return Container(
       width: double.infinity,
       color: const Color(0xFFF7F7F7),
@@ -527,34 +513,34 @@ class _AdminShellState extends State<AdminShell> {
       _menuItems[3],
     ];
 
-    int selectedBottomIndex = 0;
+    int selectedIndex = 0;
 
     if (_selectedIndex >= 0 && _selectedIndex <= 3) {
-      selectedBottomIndex = _selectedIndex;
+      selectedIndex = _selectedIndex;
     }
 
     return NavigationBar(
-      selectedIndex: selectedBottomIndex,
+      selectedIndex: selectedIndex,
       onDestinationSelected: (index) {
         setState(() {
           _selectedIndex = index;
         });
       },
-      destinations: items
-          .map(
-            (item) => NavigationDestination(
-              icon: Icon(item.icon),
-              selectedIcon: Icon(item.icon),
-              label: item.title,
-            ),
-          )
-          .toList(),
+      destinations: items.map(
+        (item) {
+          return NavigationDestination(
+            icon: Icon(item.icon),
+            selectedIcon: Icon(item.icon),
+            label: item.title,
+          );
+        },
+      ).toList(),
     );
   }
 }
 
 // ============================================================
-// MENU MODEL
+// MENU ITEM
 // ============================================================
 
 class _AdminMenuItem {
