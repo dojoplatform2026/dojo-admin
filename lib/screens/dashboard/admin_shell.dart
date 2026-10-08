@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -5,6 +6,7 @@ import '../../services/auth_service.dart';
 import 'dashboard_screen.dart';
 import '../live/live_operations_screen.dart';
 import '../bookings/bookings_screen.dart';
+import '../zones/zones_screen.dart';
 
 class AdminShell extends StatefulWidget {
   const AdminShell({super.key});
@@ -435,6 +437,10 @@ class _AdminShellState extends State<AdminShell> {
 
     if (_selectedIndex == 2) {
       return const BookingsScreen();
+    }
+
+    if (_selectedIndex == 6) {
+      return const ZonesScreen();
     }
 
     return Container(
