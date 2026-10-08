@@ -1,20 +1,18 @@
 import 'package:flutter/material.dart';
 
-class DojoWalkAdminTheme {
-  static ThemeData light() {
-    return ThemeData(
-      useMaterial3: true,
-      brightness: Brightness.light,
-      scaffoldBackgroundColor: const Color(0xFFF7F7F7),
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: const Color(0xFFFF6A00),
-        brightness: Brightness.light,
-      ),
-      fontFamily: 'Arial',
-      appBarTheme: const AppBarTheme(
-        elevation: 0,
-        centerTitle: false,
-      ),
+import 'theme.dart';
+import '../screens/auth/admin_login_screen.dart';
+
+class DojoWalkAdminApp extends StatelessWidget {
+  const DojoWalkAdminApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'DOJO WALK Admin',
+      debugShowCheckedModeBanner: false,
+      theme: DojoWalkAdminTheme.light(),
+      home: const AdminLoginScreen(),
     );
   }
 }
