@@ -1,7 +1,8 @@
-import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
 
 import '../../services/auth_service.dart';
+import 'dashboard_screen.dart';
 
 class AdminShell extends StatefulWidget {
   const AdminShell({super.key});
@@ -90,7 +91,7 @@ class _AdminShellState extends State<AdminShell> {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isMobile = constraints.maxWidth < 900;
+        final bool isMobile = constraints.maxWidth < 900;
 
         if (isMobile) {
           return _buildMobileLayout();
@@ -100,6 +101,10 @@ class _AdminShellState extends State<AdminShell> {
       },
     );
   }
+
+  // ============================================================
+  // DESKTOP
+  // ============================================================
 
   Widget _buildDesktopLayout() {
     return Scaffold(
@@ -121,9 +126,16 @@ class _AdminShellState extends State<AdminShell> {
     );
   }
 
+  // ============================================================
+  // MOBILE
+  // ============================================================
+
   Widget _buildMobileLayout() {
     return Scaffold(
       appBar: AppBar(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+        elevation: 0,
         title: const Text(
           'DOJO WALK',
           style: TextStyle(
@@ -133,8 +145,11 @@ class _AdminShellState extends State<AdminShell> {
         actions: [
           IconButton(
             onPressed: () {},
-            icon: const Icon(Icons.notifications_none),
+            icon: const Icon(
+              Icons.notifications_none,
+            ),
           ),
+          const SizedBox(width: 4),
         ],
       ),
       drawer: Drawer(
@@ -146,6 +161,10 @@ class _AdminShellState extends State<AdminShell> {
       bottomNavigationBar: _buildMobileBottomBar(),
     );
   }
+
+  // ============================================================
+  // DESKTOP SIDEBAR
+  // ============================================================
 
   Widget _buildSidebar() {
     return Container(
@@ -163,9 +182,11 @@ class _AdminShellState extends State<AdminShell> {
           children: [
             const SizedBox(height: 24),
 
+            // LOGO
             Row(
               children: [
                 const SizedBox(width: 20),
+
                 Container(
                   width: 42,
                   height: 42,
@@ -183,7 +204,9 @@ class _AdminShellState extends State<AdminShell> {
                     ),
                   ),
                 ),
+
                 const SizedBox(width: 12),
+
                 const Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -210,20 +233,27 @@ class _AdminShellState extends State<AdminShell> {
 
             const SizedBox(height: 30),
 
+            // MENU
             Expanded(
               child: ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                ),
                 itemCount: _menuItems.length,
                 itemBuilder: (context, index) {
                   final item = _menuItems[index];
-                  final selected = _selectedIndex == index;
+                  final bool selected =
+                      _selectedIndex == index;
 
                   return Padding(
-                    padding: const EdgeInsets.only(bottom: 4),
+                    padding: const EdgeInsets.only(
+                      bottom: 4,
+                    ),
                     child: ListTile(
                       selected: selected,
                       selectedTileColor:
-                          const Color(0xFFFF6A00).withValues(alpha: 0.10),
+                          const Color(0xFFFF6A00)
+                              .withValues(alpha: 0.10),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -237,8 +267,9 @@ class _AdminShellState extends State<AdminShell> {
                         item.title,
                         style: TextStyle(
                           fontSize: 14,
-                          fontWeight:
-                              selected ? FontWeight.w700 : FontWeight.w500,
+                          fontWeight: selected
+                              ? FontWeight.w700
+                              : FontWeight.w500,
                           color: selected
                               ? const Color(0xFFFF6A00)
                               : Colors.grey.shade800,
@@ -257,9 +288,14 @@ class _AdminShellState extends State<AdminShell> {
 
             const Divider(height: 1),
 
+            // LOGOUT
             ListTile(
-              leading: const Icon(Icons.logout),
-              title: const Text('Logout'),
+              leading: const Icon(
+                Icons.logout,
+              ),
+              title: const Text(
+                'Logout',
+              ),
               onTap: _logout,
             ),
 
@@ -270,16 +306,51 @@ class _AdminShellState extends State<AdminShell> {
     );
   }
 
+  // ============================================================
+  // MOBILE DRAWER
+  // ============================================================
+
   Widget _buildDrawerContent() {
     return Column(
       children: [
         const SizedBox(height: 24),
 
+        // LOGO
+        Container(
+          width: 52,
+          height: 52,
+          decoration: BoxDecoration(
+            color: const Color(0xFFFF6A00),
+            borderRadius: BorderRadius.circular(15),
+          ),
+          alignment: Alignment.center,
+          child: const Text(
+            'D',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 28,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 12),
+
         const Text(
-          'DOJO WALK ADMIN',
+          'DOJO WALK',
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.w800,
+          ),
+        ),
+
+        const Text(
+          'ADMIN',
+          style: TextStyle(
+            fontSize: 10,
+            color: Colors.grey,
+            letterSpacing: 2,
+            fontWeight: FontWeight.w700,
           ),
         ),
 
@@ -293,8 +364,27 @@ class _AdminShellState extends State<AdminShell> {
 
               return ListTile(
                 selected: _selectedIndex == index,
-                leading: Icon(item.icon),
-                title: Text(item.title),
+                selectedTileColor:
+                    const Color(0xFFFF6A00)
+                        .withValues(alpha: 0.10),
+                leading: Icon(
+                  item.icon,
+                  color: _selectedIndex == index
+                      ? const Color(0xFFFF6A00)
+                      : Colors.grey.shade700,
+                ),
+                title: Text(
+                  item.title,
+                  style: TextStyle(
+                    fontWeight:
+                        _selectedIndex == index
+                            ? FontWeight.w700
+                            : FontWeight.w500,
+                    color: _selectedIndex == index
+                        ? const Color(0xFFFF6A00)
+                        : Colors.grey.shade800,
+                  ),
+                ),
                 onTap: () {
                   setState(() {
                     _selectedIndex = index;
@@ -307,19 +397,36 @@ class _AdminShellState extends State<AdminShell> {
           ),
         ),
 
+        const Divider(height: 1),
+
         ListTile(
-          leading: const Icon(Icons.logout),
-          title: const Text('Logout'),
+          leading: const Icon(
+            Icons.logout,
+          ),
+          title: const Text(
+            'Logout',
+          ),
           onTap: _logout,
         ),
+
+        const SizedBox(height: 8),
       ],
     );
   }
 
+  // ============================================================
+  // TOP BAR
+  // ============================================================
+
   Widget _buildTopBar() {
+    final User? user =
+        FirebaseAuth.instance.currentUser;
+
     return Container(
       height: 72,
-      padding: const EdgeInsets.symmetric(horizontal: 28),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 28,
+      ),
       decoration: const BoxDecoration(
         color: Colors.white,
         border: Border(
@@ -340,6 +447,7 @@ class _AdminShellState extends State<AdminShell> {
 
           const Spacer(),
 
+          // NOTIFICATION
           IconButton(
             onPressed: () {},
             icon: const Icon(
@@ -347,11 +455,13 @@ class _AdminShellState extends State<AdminShell> {
             ),
           ),
 
-          const SizedBox(width: 8),
+          const SizedBox(width: 12),
 
+          // ADMIN AVATAR
           CircleAvatar(
             radius: 18,
-            backgroundColor: const Color(0xFFFF6A00),
+            backgroundColor:
+                const Color(0xFFFF6A00),
             child: const Icon(
               Icons.person,
               color: Colors.white,
@@ -361,11 +471,17 @@ class _AdminShellState extends State<AdminShell> {
 
           const SizedBox(width: 10),
 
-          Text(
-            FirebaseAuth.instance.currentUser?.email ??
-                'Admin',
-            style: const TextStyle(
-              fontWeight: FontWeight.w600,
+          // EMAIL
+          ConstrainedBox(
+            constraints: const BoxConstraints(
+              maxWidth: 220,
+            ),
+            child: Text(
+              user?.email ?? 'Admin',
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ],
@@ -373,7 +489,15 @@ class _AdminShellState extends State<AdminShell> {
     );
   }
 
+  // ============================================================
+  // CONTENT
+  // ============================================================
+
   Widget _buildContent() {
+    if (_selectedIndex == 0) {
+      return const DashboardScreen();
+    }
+
     return Container(
       width: double.infinity,
       color: const Color(0xFFF7F7F7),
@@ -381,6 +505,7 @@ class _AdminShellState extends State<AdminShell> {
       child: Center(
         child: Text(
           '${_menuItems[_selectedIndex].title} Screen',
+          textAlign: TextAlign.center,
           style: const TextStyle(
             fontSize: 28,
             fontWeight: FontWeight.w800,
@@ -390,6 +515,10 @@ class _AdminShellState extends State<AdminShell> {
     );
   }
 
+  // ============================================================
+  // MOBILE BOTTOM NAVIGATION
+  // ============================================================
+
   Widget _buildMobileBottomBar() {
     final items = [
       _menuItems[0],
@@ -398,9 +527,14 @@ class _AdminShellState extends State<AdminShell> {
       _menuItems[3],
     ];
 
+    int selectedBottomIndex = 0;
+
+    if (_selectedIndex >= 0 && _selectedIndex <= 3) {
+      selectedBottomIndex = _selectedIndex;
+    }
+
     return NavigationBar(
-      selectedIndex:
-          _selectedIndex > 3 ? 0 : _selectedIndex,
+      selectedIndex: selectedBottomIndex,
       onDestinationSelected: (index) {
         setState(() {
           _selectedIndex = index;
@@ -410,6 +544,7 @@ class _AdminShellState extends State<AdminShell> {
           .map(
             (item) => NavigationDestination(
               icon: Icon(item.icon),
+              selectedIcon: Icon(item.icon),
               label: item.title,
             ),
           )
@@ -417,6 +552,10 @@ class _AdminShellState extends State<AdminShell> {
     );
   }
 }
+
+// ============================================================
+// MENU MODEL
+// ============================================================
 
 class _AdminMenuItem {
   final String title;
