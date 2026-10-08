@@ -1,4 +1,4 @@
-name: DOJO WALK Admin Web Build
+name: DOJO WALK Admin Web Deploy
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
@@ -29,9 +29,9 @@ jobs:
       - name: Build Flutter Web
         run: flutter build web --release
 
-      - name: Upload web build
-        uses: actions/upload-artifact@v4
+      - name: Deploy to Firebase Hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
         with:
-          name: dojo-admin-web
-          path: build/web/
-          if-no-files-found: error
+          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_DOJO_PLATFORM_B68A3 }}'
+          projectId: dojo-platform-b68a3
+          channelId: live
