@@ -23,7 +23,6 @@ class _ZonesScreenState extends State<ZonesScreen> {
 
   List<LatLng> _points = [];
   List<BoundaryCandidate> _candidates = [];
-  List<Map<String, dynamic>> _locations = [];
 
   String? _state;
   String? _city;
@@ -33,7 +32,6 @@ class _ZonesScreenState extends State<ZonesScreen> {
 
   bool _active = false;
   bool _saving = false;
-  bool _loadingLocations = true;
   bool _searching = false;
 
   static const _orange = Color(0xFFF47721);
@@ -45,38 +43,194 @@ class _ZonesScreenState extends State<ZonesScreen> {
 
   bool get _isEditing => _selectedZoneId != null;
 
+  // States and Union Territories.
+  static const Map<String, List<String>> _locationData = {
+    'Andhra Pradesh': [
+      'Visakhapatnam', 'Vijayawada', 'Guntur',
+    ],
+    'Arunachal Pradesh': [
+      'Itanagar', 'Naharlagun',
+    ],
+    'Assam': [
+      'Guwahati', 'Dibrugarh', 'Silchar',
+    ],
+    'Bihar': [
+      'Patna', 'Gaya', 'Muzaffarpur',
+    ],
+    'Chhattisgarh': [
+      'Raipur', 'Bhilai', 'Bilaspur',
+    ],
+    'Goa': [
+      'Panaji', 'Margao', 'Vasco da Gama',
+    ],
+    'Gujarat': [
+      'Ahmedabad', 'Surat', 'Vadodara', 'Rajkot',
+    ],
+    'Haryana': [
+      'Gurugram', 'Faridabad', 'Panipat',
+    ],
+    'Himachal Pradesh': [
+      'Shimla', 'Dharamshala', 'Mandi',
+    ],
+    'Jharkhand': [
+      'Ranchi', 'Jamshedpur', 'Dhanbad',
+    ],
+    'Karnataka': [
+      'Bengaluru', 'Mysuru', 'Mangaluru',
+    ],
+    'Kerala': [
+      'Thiruvananthapuram', 'Kochi', 'Kozhikode',
+    ],
+    'Madhya Pradesh': [
+      'Bhopal', 'Indore', 'Jabalpur',
+    ],
+    'Maharashtra': [
+      'Mumbai', 'Pune', 'Nagpur', 'Nashik',
+    ],
+    'Manipur': [
+      'Imphal',
+    ],
+    'Meghalaya': [
+      'Shillong',
+    ],
+    'Mizoram': [
+      'Aizawl',
+    ],
+    'Nagaland': [
+      'Kohima', 'Dimapur',
+    ],
+    'Odisha': [
+      'Bhubaneswar', 'Cuttack', 'Rourkela',
+    ],
+    'Punjab': [
+      'Amritsar', 'Ludhiana', 'Jalandhar',
+    ],
+    'Rajasthan': [
+      'Jaipur', 'Jodhpur', 'Udaipur', 'Kota',
+    ],
+    'Sikkim': [
+      'Gangtok',
+    ],
+    'Tamil Nadu': [
+      'Chennai', 'Coimbatore', 'Madurai',
+    ],
+    'Telangana': [
+      'Hyderabad', 'Warangal', 'Karimnagar',
+    ],
+    'Tripura': [
+      'Agartala',
+    ],
+    'Uttar Pradesh': [
+      'Greater Noida',
+      'Noida',
+      'Ghaziabad',
+      'Lucknow',
+      'Kanpur',
+      'Agra',
+      'Varanasi',
+      'Prayagraj',
+    ],
+    'Uttarakhand': [
+      'Dehradun', 'Haridwar', 'Haldwani',
+    ],
+    'West Bengal': [
+      'Kolkata', 'Howrah', 'Siliguri',
+    ],
+    'Andaman and Nicobar Islands': [
+      'Port Blair',
+    ],
+    'Chandigarh': [
+      'Chandigarh',
+    ],
+    'Dadra and Nagar Haveli and Daman and Diu': [
+      'Daman', 'Silvassa',
+    ],
+    'Delhi': [
+      'New Delhi', 'Delhi',
+    ],
+    'Jammu and Kashmir': [
+      'Srinagar', 'Jammu',
+    ],
+    'Ladakh': [
+      'Leh', 'Kargil',
+    ],
+    'Lakshadweep': [
+      'Kavaratti',
+    ],
+    'Puducherry': [
+      'Puducherry', 'Karaikal',
+    ],
+  };
+
+  // Pilot localities. Add more localities here when needed.
+  static const Map<String, List<String>> _areaData = {
+    'Uttar Pradesh|Greater Noida': [
+      'Gaur City 1',
+      'Gaur City 2',
+      'Techzone 4',
+      'Bisrakh',
+      'Noida Extension',
+    ],
+    'Uttar Pradesh|Noida': [
+      'Sector 18',
+      'Sector 62',
+      'Sector 75',
+      'Sector 137',
+    ],
+    'Uttar Pradesh|Ghaziabad': [
+      'Indirapuram',
+      'Vaishali',
+      'Vasundhara',
+      'Raj Nagar Extension',
+    ],
+    'Rajasthan|Jaipur': [
+      'Malviya Nagar',
+      'Vaishali Nagar',
+      'Mansarovar',
+      'Jagatpura',
+      'C-Scheme',
+    ],
+  };
+
   List<String> get _states {
-    final values = _locations
-        .map((e) => _str(e['state']))
-        .where((e) => e.isNotEmpty)
-        .toSet()
-        .toList();
-    values.sort();
-    return values;
+    final result = _locationData.keys.toList();
+    result.sort();
+    return result;
   }
 
   List<String> get _cities {
-    final values = _locations
-        .where((e) => _str(e['state']) == _state)
-        .map((e) => _str(e['city']))
-        .where((e) => e.isNotEmpty)
-        .toSet()
-        .toList();
-    values.sort();
-    return values;
+    if (_state == null) return [];
+
+    final result = List<String>.from(
+      _locationData[_state] ?? const <String>[],
+    );
+
+    // Preserve a previously saved city while editing an existing zone.
+    if (_city != null && _city!.isNotEmpty &&
+        !result.contains(_city)) {
+      result.add(_city!);
+    }
+
+    result.sort();
+    return result;
   }
 
   List<String> get _localities {
-    final values = _locations
-        .where((e) =>
-            _str(e['state']) == _state &&
-            _str(e['city']) == _city)
-        .map((e) => _str(e['locality']))
-        .where((e) => e.isNotEmpty)
-        .toSet()
-        .toList();
-    values.sort();
-    return values;
+    if (_state == null || _city == null) return [];
+
+    final key = '$_state|$_city';
+    final result = List<String>.from(
+      _areaData[key] ?? const <String>[],
+    );
+
+    // Preserve a previously saved locality while editing.
+    if (_locality != null && _locality!.isNotEmpty &&
+        !result.contains(_locality)) {
+      result.add(_locality!);
+    }
+
+    result.sort();
+    return result;
   }
 
   String _str(dynamic value) => value?.toString().trim() ?? '';
@@ -87,7 +241,6 @@ class _ZonesScreenState extends State<ZonesScreen> {
   @override
   void initState() {
     super.initState();
-    _loadLocations();
   }
 
   @override
@@ -100,36 +253,22 @@ class _ZonesScreenState extends State<ZonesScreen> {
     super.dispose();
   }
 
-  Future<void> _loadLocations() async {
-    try {
-      final snapshot = await _db.collection('location_catalog').get();
-      if (!mounted) return;
-
-      setState(() {
-        _locations = snapshot.docs.map((doc) {
-          return <String, dynamic>{...doc.data(), 'id': doc.id};
-        }).toList();
-        _loadingLocations = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _loadingLocations = false);
-      _message('Location list load nahi hui: $e', error: true);
-    }
-  }
-
   void _message(String message, {bool error = false}) {
     if (!mounted) return;
+
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(
-        content: Text(message),
-        backgroundColor: error ? Colors.red : Colors.green,
-      ));
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: error ? Colors.red : Colors.green,
+        ),
+      );
   }
 
   List<LatLng> _readCoordinates(dynamic value) {
     if (value is! List) return [];
+
     final result = <LatLng>[];
 
     for (final item in value) {
@@ -138,11 +277,15 @@ class _ZonesScreenState extends State<ZonesScreen> {
       } else if (item is Map) {
         final lat = item['latitude'];
         final lng = item['longitude'];
+
         if (lat is num && lng is num) {
-          result.add(LatLng(lat.toDouble(), lng.toDouble()));
+          result.add(
+            LatLng(lat.toDouble(), lng.toDouble()),
+          );
         }
       }
     }
+
     return result;
   }
 
@@ -192,6 +335,7 @@ class _ZonesScreenState extends State<ZonesScreen> {
 
   void _resetForm() {
     if (_saving) return;
+
     setState(() {
       _selectedZoneId = null;
       _selectedBoundaryKey = null;
@@ -215,11 +359,13 @@ class _ZonesScreenState extends State<ZonesScreen> {
     final locality = _str(data['locality']).isNotEmpty
         ? _str(data['locality'])
         : _str(data['area']);
+
     final points = _readCoordinates(data['coordinates']);
 
     setState(() {
       _selectedZoneId = id;
       _selectedBoundaryKey = null;
+
       _nameController.text = _str(data['name']);
       _societyController.text = _str(data['society']).isNotEmpty
           ? _str(data['society'])
@@ -227,41 +373,17 @@ class _ZonesScreenState extends State<ZonesScreen> {
       _pinCodeController.text = _str(data['pinCode']);
 
       _state = _states.contains(state) ? state : null;
-      _city = _citiesFor(state).contains(city) ? city : null;
-      _locality = _localitiesFor(state, city).contains(locality)
-          ? locality
-          : null;
+      _city = _state != null && city.isNotEmpty ? city : null;
+      _locality =
+          _city != null && locality.isNotEmpty ? locality : null;
 
       _active = data['isActive'] == true;
       _points = points;
+      _candidates.clear();
     });
 
     _focusZone(points);
     _message('Edit mode ready.');
-  }
-
-  List<String> _citiesFor(String state) {
-    final result = _locations
-        .where((e) => _str(e['state']) == state)
-        .map((e) => _str(e['city']))
-        .where((e) => e.isNotEmpty)
-        .toSet()
-        .toList();
-    result.sort();
-    return result;
-  }
-
-  List<String> _localitiesFor(String state, String city) {
-    final result = _locations
-        .where((e) =>
-            _str(e['state']) == state &&
-            _str(e['city']) == city)
-        .map((e) => _str(e['locality']))
-        .where((e) => e.isNotEmpty)
-        .toSet()
-        .toList();
-    result.sort();
-    return result;
   }
 
   Future<void> _searchBoundaries() async {
@@ -273,6 +395,7 @@ class _ZonesScreenState extends State<ZonesScreen> {
     }
 
     FocusScope.of(context).unfocus();
+
     setState(() {
       _searching = true;
       _candidates = [];
@@ -287,15 +410,20 @@ class _ZonesScreenState extends State<ZonesScreen> {
       );
 
       if (!mounted) return;
+
       setState(() => _candidates = results);
 
-      _message(results.isEmpty
-          ? 'Boundary nahi mili. Manual drawing use karo.'
-          : '${results.length} results mile. Boundary ko verify karo.');
+      _message(
+        results.isEmpty
+            ? 'Boundary nahi mili. Manual drawing use karo.'
+            : '${results.length} results mile. Boundary verify karo.',
+      );
     } catch (e) {
       _message('Boundary search failed: $e', error: true);
     } finally {
-      if (mounted) setState(() => _searching = false);
+      if (mounted) {
+        setState(() => _searching = false);
+      }
     }
   }
 
@@ -311,7 +439,10 @@ class _ZonesScreenState extends State<ZonesScreen> {
     });
 
     await _focusZone(candidate.points);
-    _message('Boundary preview loaded. Save karne se pehle verify karo.');
+
+    _message(
+      'Boundary preview loaded. Save karne se pehle verify karo.',
+    );
   }
 
   Future<void> _saveZone() async {
@@ -325,17 +456,22 @@ class _ZonesScreenState extends State<ZonesScreen> {
       _message('Zone name zaroori hai.', error: true);
       return;
     }
+
     if (_state == null || _city == null || _locality == null) {
       _message('State, City aur Area select karo.', error: true);
       return;
     }
+
     if (!RegExp(r'^\d{6}$').hasMatch(pin)) {
       _message('Valid 6-digit PIN code enter karo.', error: true);
       return;
     }
+
     if (_points.length < 3) {
-      _message('Boundary ke liye kam se kam 3 points chahiye.',
-          error: true);
+      _message(
+        'Boundary ke liye kam se kam 3 points chahiye.',
+        error: true,
+      );
       return;
     }
 
@@ -365,6 +501,7 @@ class _ZonesScreenState extends State<ZonesScreen> {
           ],
         ),
       );
+
       if (confirm != true || !mounted) return;
     }
 
@@ -382,10 +519,12 @@ class _ZonesScreenState extends State<ZonesScreen> {
         'pinCode': pin,
         'isActive': imported ? false : _active,
         'type': 'polygon',
-        'coordinates': points.map((p) => {
-          'latitude': p.latitude,
-          'longitude': p.longitude,
-        }).toList(),
+        'coordinates': points
+            .map((p) => {
+                  'latitude': p.latitude,
+                  'longitude': p.longitude,
+                })
+            .toList(),
         'updatedAt': FieldValue.serverTimestamp(),
       };
 
@@ -398,6 +537,7 @@ class _ZonesScreenState extends State<ZonesScreen> {
           final matches = _candidates.where(
             (c) => _key(c) == _selectedBoundaryKey,
           );
+
           if (matches.isNotEmpty) {
             final c = matches.first;
             data['boundarySource'] = 'openstreetmap';
@@ -413,6 +553,7 @@ class _ZonesScreenState extends State<ZonesScreen> {
       }
 
       if (!mounted) return;
+
       setState(() {
         _selectedZoneId = null;
         _selectedBoundaryKey = null;
@@ -423,16 +564,22 @@ class _ZonesScreenState extends State<ZonesScreen> {
         _city = null;
         _locality = null;
         _points.clear();
+        _candidates.clear();
         _active = false;
       });
 
-      _message(imported
-          ? 'Boundary inactive save hui. Review ke baad activate karo.'
-          : wasEditing
-              ? 'Zone update ho gaya.'
-              : 'Zone save ho gaya.');
+      _message(
+        imported
+            ? 'Boundary inactive save hui. Review ke baad activate karo.'
+            : wasEditing
+                ? 'Zone update ho gaya.'
+                : 'Zone save ho gaya.',
+      );
     } on FirebaseException catch (e) {
-      _message('Save failed (${e.code}): ${e.message}', error: true);
+      _message(
+        'Save failed (${e.code}): ${e.message}',
+        error: true,
+      );
     } catch (e) {
       _message('Save failed: $e', error: true);
     } finally {
@@ -446,7 +593,10 @@ class _ZonesScreenState extends State<ZonesScreen> {
         'isActive': !current,
         'updatedAt': FieldValue.serverTimestamp(),
       });
-      _message(current ? 'Zone inactive ho gaya.' : 'Zone active ho gaya.');
+
+      _message(
+        current ? 'Zone inactive ho gaya.' : 'Zone active ho gaya.',
+      );
     } catch (e) {
       _message('Status update failed: $e', error: true);
     }
@@ -472,9 +622,14 @@ class _ZonesScreenState extends State<ZonesScreen> {
     );
 
     if (confirm != true) return;
+
     try {
       await _zones.doc(id).delete();
-      if (_selectedZoneId == id) _resetForm();
+
+      if (_selectedZoneId == id) {
+        _resetForm();
+      }
+
       _message('Zone delete ho gaya.');
     } catch (e) {
       _message('Delete failed: $e', error: true);
@@ -500,10 +655,14 @@ class _ZonesScreenState extends State<ZonesScreen> {
             borderRadius: BorderRadius.circular(12),
           ),
         ),
-        items: options.map((item) => DropdownMenuItem(
-          value: item,
-          child: Text(item),
-        )).toList(),
+        items: options
+            .map(
+              (item) => DropdownMenuItem<String>(
+                value: item,
+                child: Text(item),
+              ),
+            )
+            .toList(),
         onChanged: _saving ? null : onChanged,
       ),
     );
@@ -538,7 +697,9 @@ class _ZonesScreenState extends State<ZonesScreen> {
     );
   }
 
-  Set<Polygon> _polygons(List<QueryDocumentSnapshot<Map<String, dynamic>>> docs) {
+  Set<Polygon> _polygons(
+    List<QueryDocumentSnapshot<Map<String, dynamic>>> docs,
+  ) {
     final result = <Polygon>{};
 
     for (final doc in docs) {
@@ -548,32 +709,36 @@ class _ZonesScreenState extends State<ZonesScreen> {
       final active = doc.data()['isActive'] == true;
       final selected = doc.id == _selectedZoneId;
 
-      result.add(Polygon(
-        polygonId: PolygonId('saved-${doc.id}'),
-        points: points,
-        fillColor: (selected
-                ? Colors.blue
-                : active
-                    ? Colors.green
-                    : Colors.grey)
-            .withValues(alpha: 0.16),
-        strokeColor: selected
-            ? Colors.blue
-            : active
-                ? Colors.green
-                : Colors.grey,
-        strokeWidth: selected ? 4 : 2,
-      ));
+      result.add(
+        Polygon(
+          polygonId: PolygonId('saved-${doc.id}'),
+          points: points,
+          fillColor: (selected
+                  ? Colors.blue
+                  : active
+                      ? Colors.green
+                      : Colors.grey)
+              .withValues(alpha: 0.16),
+          strokeColor: selected
+              ? Colors.blue
+              : active
+                  ? Colors.green
+                  : Colors.grey,
+          strokeWidth: selected ? 4 : 2,
+        ),
+      );
     }
 
     if (_points.length >= 3) {
-      result.add(Polygon(
-        polygonId: const PolygonId('preview'),
-        points: _points,
-        fillColor: _orange.withValues(alpha: 0.18),
-        strokeColor: _orange,
-        strokeWidth: 3,
-      ));
+      result.add(
+        Polygon(
+          polygonId: const PolygonId('preview'),
+          points: _points,
+          fillColor: _orange.withValues(alpha: 0.18),
+          strokeColor: _orange,
+          strokeWidth: 3,
+        ),
+      );
     }
 
     return result;
@@ -585,6 +750,7 @@ class _ZonesScreenState extends State<ZonesScreen> {
       stream: _zones.snapshots(),
       builder: (context, snapshot) {
         final docs = snapshot.data?.docs ?? [];
+
         final activeCount =
             docs.where((d) => d.data()['isActive'] == true).length;
 
@@ -594,24 +760,35 @@ class _ZonesScreenState extends State<ZonesScreen> {
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                Row(children: [
-                  const Icon(Icons.map, color: _orange, size: 32),
-                  const SizedBox(width: 12),
-                  const Expanded(
-                    child: Text('Service Zones',
+                Row(
+                  children: [
+                    const Icon(Icons.map, color: _orange, size: 32),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Text(
+                        'Service Zones',
                         style: TextStyle(
-                            fontSize: 23, fontWeight: FontWeight.bold)),
-                  ),
-                  IconButton(
-                    onPressed: _resetForm,
-                    icon: const Icon(Icons.add_circle_outline),
-                  ),
-                ]),
-                Wrap(spacing: 8, children: [
-                  Chip(label: Text('${docs.length} Total')),
-                  Chip(label: Text('$activeCount Active')),
-                  Chip(label: Text('${docs.length - activeCount} Inactive')),
-                ]),
+                          fontSize: 23,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: _resetForm,
+                      icon: const Icon(Icons.add_circle_outline),
+                    ),
+                  ],
+                ),
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    Chip(label: Text('${docs.length} Total')),
+                    Chip(label: Text('$activeCount Active')),
+                    Chip(
+                      label: Text('${docs.length - activeCount} Inactive'),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 12),
                 SizedBox(
                   height: 330,
@@ -623,11 +800,13 @@ class _ZonesScreenState extends State<ZonesScreen> {
                     onMapCreated: (c) => _mapController = c,
                     onTap: _saving
                         ? null
-                        : (p) => setState(() {
+                        : (p) {
+                            setState(() {
                               _points.add(p);
                               _selectedZoneId = null;
                               _selectedBoundaryKey = null;
-                            }),
+                            });
+                          },
                     polygons: _polygons(docs),
                     markers: {
                       for (var i = 0; i < _points.length; i++)
@@ -642,47 +821,59 @@ class _ZonesScreenState extends State<ZonesScreen> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                const Text('Green = Active • Blue = Saved selection • Orange = Preview'),
+                const Text(
+                  'Green = Active • Blue = Saved selection • Orange = Preview',
+                ),
                 const SizedBox(height: 20),
-                const Text('Find Available Boundaries',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                if (_loadingLocations)
-                  const LinearProgressIndicator()
-                else if (_locations.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 12),
-                    child: Text(
-                      'location_catalog empty hai. State, city aur locality ke records add karo.',
-                      style: TextStyle(color: Colors.red),
-                    ),
+                const Text(
+                  'Find Available Boundaries',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
                   ),
+                ),
+                const SizedBox(height: 12),
                 _dropdown(
                   label: 'State',
                   value: _state,
                   options: _states,
                   icon: Icons.map_outlined,
-                  onChanged: (v) => setState(() {
-                    _state = v;
-                    _city = null;
-                    _locality = null;
-                  }),
+                  onChanged: (v) {
+                    setState(() {
+                      _state = v;
+                      _city = null;
+                      _locality = null;
+                      _candidates.clear();
+                      _selectedBoundaryKey = null;
+                    });
+                  },
                 ),
                 _dropdown(
                   label: 'City',
                   value: _city,
                   options: _cities,
                   icon: Icons.location_city,
-                  onChanged: (v) => setState(() {
-                    _city = v;
-                    _locality = null;
-                  }),
+                  onChanged: (v) {
+                    setState(() {
+                      _city = v;
+                      _locality = null;
+                      _candidates.clear();
+                      _selectedBoundaryKey = null;
+                    });
+                  },
                 ),
                 _dropdown(
                   label: 'Area / Locality',
                   value: _locality,
                   options: _localities,
                   icon: Icons.place_outlined,
-                  onChanged: (v) => setState(() => _locality = v),
+                  onChanged: (v) {
+                    setState(() {
+                      _locality = v;
+                      _candidates.clear();
+                      _selectedBoundaryKey = null;
+                    });
+                  },
                 ),
                 FilledButton.icon(
                   onPressed: _searching ? null : _searchBoundaries,
@@ -691,10 +882,14 @@ class _ZonesScreenState extends State<ZonesScreen> {
                           width: 18,
                           height: 18,
                           child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.white),
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
                         )
                       : const Icon(Icons.travel_explore),
-                  label: Text(_searching ? 'Searching...' : 'Search Boundaries'),
+                  label: Text(
+                    _searching ? 'Searching...' : 'Search Boundaries',
+                  ),
                   style: FilledButton.styleFrom(
                     backgroundColor: _orange,
                     minimumSize: const Size.fromHeight(48),
@@ -703,20 +898,28 @@ class _ZonesScreenState extends State<ZonesScreen> {
                 if (_candidates.isNotEmpty) ...[
                   const SizedBox(height: 12),
                   const Text('Select a boundary to preview'),
-                  ..._candidates.map((c) => Card(
-                        child: ListTile(
-                          title: Text(c.name),
-                          subtitle: Text(
-                              '${c.osmType} ${c.osmId} • ${c.points.length} points'),
-                          trailing: const Icon(Icons.visibility),
-                          onTap: () => _selectBoundary(c),
+                  ..._candidates.map(
+                    (c) => Card(
+                      child: ListTile(
+                        title: Text(c.name),
+                        subtitle: Text(
+                          '${c.osmType} ${c.osmId} • '
+                          '${c.points.length} points',
                         ),
-                      )),
+                        trailing: const Icon(Icons.visibility),
+                        onTap: () => _selectBoundary(c),
+                      ),
+                    ),
+                  ),
                 ],
                 const SizedBox(height: 20),
-                Text(_isEditing ? 'Edit Service Zone' : 'Add New Service Zone',
-                    style: const TextStyle(
-                        fontSize: 18, fontWeight: FontWeight.bold)),
+                Text(
+                  _isEditing ? 'Edit Service Zone' : 'Add New Service Zone',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
                 _field(
                   controller: _nameController,
                   label: 'Zone Name',
@@ -739,39 +942,44 @@ class _ZonesScreenState extends State<ZonesScreen> {
                 ),
                 SwitchListTile(
                   title: const Text('Zone Active'),
-                  subtitle: Text(_active
-                      ? 'Service enabled'
-                      : 'Service disabled'),
+                  subtitle: Text(
+                    _active ? 'Service enabled' : 'Service disabled',
+                  ),
                   value: _active,
                   activeThumbColor: _orange,
                   onChanged: _saving
                       ? null
                       : (v) => setState(() => _active = v),
                 ),
-                Row(children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: _points.isEmpty
-                          ? null
-                          : () => setState(() => _points.removeLast()),
-                      icon: const Icon(Icons.undo),
-                      label: const Text('Undo'),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _points.isEmpty || _saving
+                            ? null
+                            : () => setState(() {
+                                  _points.removeLast();
+                                  _selectedBoundaryKey = null;
+                                }),
+                        icon: const Icon(Icons.undo),
+                        label: const Text('Undo'),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: _points.isEmpty
-                          ? null
-                          : () => setState(() {
-                                _points.clear();
-                                _selectedBoundaryKey = null;
-                              }),
-                      icon: const Icon(Icons.delete_outline),
-                      label: const Text('Clear Boundary'),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _points.isEmpty || _saving
+                            ? null
+                            : () => setState(() {
+                                  _points.clear();
+                                  _selectedBoundaryKey = null;
+                                }),
+                        icon: const Icon(Icons.delete_outline),
+                        label: const Text('Clear Boundary'),
+                      ),
                     ),
-                  ),
-                ]),
+                  ],
+                ),
                 const SizedBox(height: 12),
                 FilledButton.icon(
                   onPressed: _saving ? null : _saveZone,
@@ -783,8 +991,13 @@ class _ZonesScreenState extends State<ZonesScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                const Text('Manage Saved Zones',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const Text(
+                  'Manage Saved Zones',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
                 if (snapshot.hasError)
                   Text('Load failed: ${snapshot.error}')
                 else if (!snapshot.hasData)
@@ -794,42 +1007,62 @@ class _ZonesScreenState extends State<ZonesScreen> {
                 else
                   ...docs.map((doc) {
                     final data = doc.data();
+
                     final name = _str(data['name']).isEmpty
                         ? 'Unnamed Zone'
                         : _str(data['name']);
+
                     final enabled = data['isActive'] == true;
                     final coords = _readCoordinates(data['coordinates']);
 
                     return Card(
-                      child: Column(children: [
-                        ListTile(
-                          title: Text(name),
-                          subtitle: Text(
-                            '${_str(data['city'])} • ${_str(data['locality']).isNotEmpty ? _str(data['locality']) : _str(data['area'])} • ${coords.length} points',
+                      child: Column(
+                        children: [
+                          ListTile(
+                            title: Text(name),
+                            subtitle: Text(
+                              '${_str(data['city'])} • '
+                              '${_str(data['locality']).isNotEmpty ? _str(data['locality']) : _str(data['area'])} • '
+                              '${coords.length} points',
+                            ),
+                            onTap: () {
+                              setState(() => _selectedZoneId = doc.id);
+                              _focusZone(coords);
+                            },
                           ),
-                          onTap: () {
-                            setState(() => _selectedZoneId = doc.id);
-                            _focusZone(coords);
-                          },
-                        ),
-                        Row(children: [
-                          const SizedBox(width: 12),
-                          Text(enabled ? 'Active' : 'Inactive'),
-                          const Spacer(),
-                          Switch(
-                            value: enabled,
-                            onChanged: (_) => _toggleZone(doc.id, enabled),
+                          Row(
+                            children: [
+                              const SizedBox(width: 12),
+                              Text(enabled ? 'Active' : 'Inactive'),
+                              const Spacer(),
+                              Switch(
+                                value: enabled,
+                                onChanged: _saving
+                                    ? null
+                                    : (_) => _toggleZone(doc.id, enabled),
+                              ),
+                              IconButton(
+                                onPressed: _saving
+                                    ? null
+                                    : () => _startEdit(doc.id, data),
+                                icon: const Icon(
+                                  Icons.edit,
+                                  color: _orange,
+                                ),
+                              ),
+                              IconButton(
+                                onPressed: _saving
+                                    ? null
+                                    : () => _deleteZone(doc.id, name),
+                                icon: const Icon(
+                                  Icons.delete,
+                                  color: Colors.red,
+                                ),
+                              ),
+                            ],
                           ),
-                          IconButton(
-                            onPressed: () => _startEdit(doc.id, data),
-                            icon: const Icon(Icons.edit, color: _orange),
-                          ),
-                          IconButton(
-                            onPressed: () => _deleteZone(doc.id, name),
-                            icon: const Icon(Icons.delete, color: Colors.red),
-                          ),
-                        ]),
-                      ]),
+                        ],
+                      ),
                     );
                   }),
               ],
