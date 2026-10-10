@@ -2,6 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import '../../services/boundary_service.dart';
+
 class ZonesScreen extends StatefulWidget {
   const ZonesScreen({super.key});
 
@@ -11,8 +13,10 @@ class ZonesScreen extends StatefulWidget {
 
 class _ZonesScreenState extends State<ZonesScreen> {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final BoundaryService _boundaryService = BoundaryService();
 
   final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _stateController = TextEditingController();
   final TextEditingController _cityController = TextEditingController();
   final TextEditingController _localityController = TextEditingController();
   final TextEditingController _societyController = TextEditingController();
@@ -21,10 +25,14 @@ class _ZonesScreenState extends State<ZonesScreen> {
   GoogleMapController? _mapController;
 
   final List<LatLng> _points = [];
+  List<BoundaryCandidate> _boundaryCandidates = [];
 
   String? _selectedZoneId;
-  bool _active = true;
+  String? _selectedBoundaryKey;
+
+  bool _active = false;
   bool _saving = false;
+  bool _searchingBoundaries = false;
 
   static const Color _orange = Color(0xFFF47721);
   static const Color _background = Color(0xFFF5F5F5);
@@ -35,14 +43,19 @@ class _ZonesScreenState extends State<ZonesScreen> {
   CollectionReference<Map<String, dynamic>> get _zones =>
       _db.collection('zones');
 
+  String _boundaryKey(BoundaryCandidate item) =>
+      '${item.osmType}:${item.osmId}:${item.points.length}';
+
   @override
   void dispose() {
     _nameController.dispose();
+    _stateController.dispose();
     _cityController.dispose();
     _localityController.dispose();
     _societyController.dispose();
     _pinCodeController.dispose();
     _mapController?.dispose();
+    _boundaryService.dispose();
     super.dispose();
   }
 
@@ -59,9 +72,7 @@ class _ZonesScreenState extends State<ZonesScreen> {
       );
   }
 
-  String _text(dynamic value) {
-    return value?.toString().trim() ?? '';
-  }
+  String _text(dynamic value) => value?.toString().trim() ?? '';
 
   List<LatLng> _readCoordinates(dynamic value) {
     if (value is! List) return [];
@@ -76,9 +87,7 @@ class _ZonesScreenState extends State<ZonesScreen> {
         final lng = item['longitude'];
 
         if (lat is num && lng is num) {
-          result.add(
-            LatLng(lat.toDouble(), lng.toDouble()),
-          );
+          result.add(LatLng(lat.toDouble(), lng.toDouble()));
         }
       }
     }
@@ -87,11 +96,13 @@ class _ZonesScreenState extends State<ZonesScreen> {
   }
 
   Future<void> _focusZone(List<LatLng> points) async {
-    if (points.isEmpty || _mapController == null) return;
+    final controller = _mapController;
+
+    if (points.isEmpty || controller == null) return;
 
     try {
       if (points.length == 1) {
-        await _mapController!.animateCamera(
+        await controller.animateCamera(
           CameraUpdate.newLatLngZoom(points.first, 16),
         );
         return;
@@ -110,13 +121,13 @@ class _ZonesScreenState extends State<ZonesScreen> {
       }
 
       if (minLat == maxLat && minLng == maxLng) {
-        await _mapController!.animateCamera(
+        await controller.animateCamera(
           CameraUpdate.newLatLngZoom(points.first, 16),
         );
         return;
       }
 
-      await _mapController!.animateCamera(
+      await controller.animateCamera(
         CameraUpdate.newLatLngBounds(
           LatLngBounds(
             southwest: LatLng(minLat, minLng),
@@ -131,29 +142,37 @@ class _ZonesScreenState extends State<ZonesScreen> {
   }
 
   void _resetForm() {
+    if (_saving) return;
+
     setState(() {
       _selectedZoneId = null;
+      _selectedBoundaryKey = null;
+
       _nameController.clear();
+      _stateController.clear();
       _cityController.clear();
       _localityController.clear();
       _societyController.clear();
       _pinCodeController.clear();
+
       _points.clear();
-      _active = true;
+      _active = false;
     });
   }
 
-  void _startEdit(
-    String id,
-    Map<String, dynamic> data,
-  ) {
+  void _startEdit(String id, Map<String, dynamic> data) {
+    if (_saving) return;
+
     final coordinates = _readCoordinates(data['coordinates']);
 
     setState(() {
       _selectedZoneId = id;
+      _selectedBoundaryKey = null;
 
       _nameController.text = _text(data['name']);
+      _stateController.text = _text(data['state']);
       _cityController.text = _text(data['city']);
+
       _localityController.text = _text(data['locality']).isNotEmpty
           ? _text(data['locality'])
           : _text(data['area']);
@@ -163,7 +182,6 @@ class _ZonesScreenState extends State<ZonesScreen> {
           : _text(data['sector']);
 
       _pinCodeController.text = _text(data['pinCode']);
-
       _active = data['isActive'] == true;
 
       _points
@@ -175,10 +193,97 @@ class _ZonesScreenState extends State<ZonesScreen> {
     _message('Zone edit mode mein khul gaya.');
   }
 
+  // Search OSM for available polygon boundaries.
+  Future<void> _searchBoundaries() async {
+    if (_searchingBoundaries || _saving) return;
+
+    final area = _localityController.text.trim();
+    final city = _cityController.text.trim();
+    final state = _stateController.text.trim();
+
+    if (area.isEmpty || city.isEmpty || state.isEmpty) {
+      _message(
+        'Search ke liye Locality, City aur State bharo.',
+        error: true,
+      );
+      return;
+    }
+
+    FocusScope.of(context).unfocus();
+
+    setState(() {
+      _searchingBoundaries = true;
+      _boundaryCandidates = [];
+      _selectedBoundaryKey = null;
+    });
+
+    try {
+      final results = await _boundaryService.searchBoundaries(
+        area: area,
+        city: city,
+        state: state,
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _boundaryCandidates = results;
+      });
+
+      if (results.isEmpty) {
+        _message(
+          'Koi polygon boundary nahi mili. Manual drawing use karo.',
+          error: true,
+        );
+      } else {
+        _message(
+          '${results.length} boundary candidates mile. Map par review karo.',
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        _message('Boundary search failed: $e', error: true);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _searchingBoundaries = false);
+      }
+    }
+  }
+
+  // Load a candidate into the map for review.
+  Future<void> _selectBoundary(BoundaryCandidate candidate) async {
+    if (_saving) return;
+
+    setState(() {
+      _selectedZoneId = null;
+      _selectedBoundaryKey = _boundaryKey(candidate);
+
+      _points
+        ..clear()
+        ..addAll(candidate.points);
+
+      _nameController.text = candidate.name;
+
+      // Keep the user's search location as the locality.
+      // The OSM result name is used as the initial zone name.
+      _active = false;
+    });
+
+    await _focusZone(candidate.points);
+
+    if (mounted) {
+      _message(
+        'Boundary preview ready. Details check karo; zone abhi publish nahi hua.',
+      );
+    }
+  }
+
   Future<void> _saveZone() async {
     if (_saving) return;
 
     final name = _nameController.text.trim();
+    final state = _stateController.text.trim();
     final city = _cityController.text.trim();
     final locality = _localityController.text.trim();
     final society = _societyController.text.trim();
@@ -189,18 +294,11 @@ class _ZonesScreenState extends State<ZonesScreen> {
       return;
     }
 
-    if (city.isEmpty) {
-      _message('City ka naam likho.', error: true);
-      return;
-    }
-
-    if (locality.isEmpty) {
-      _message('Locality ka naam likho.', error: true);
-      return;
-    }
-
-    if (society.isEmpty) {
-      _message('Society ya Sector ka naam likho.', error: true);
+    if (state.isEmpty || city.isEmpty || locality.isEmpty) {
+      _message(
+        'State, City aur Locality zaroori hain.',
+        error: true,
+      );
       return;
     }
 
@@ -211,29 +309,63 @@ class _ZonesScreenState extends State<ZonesScreen> {
 
     if (_points.length < 3) {
       _message(
-        'Boundary ke liye map par kam se kam 3 points banao.',
+        'Boundary ke liye kam se kam 3 points chahiye.',
         error: true,
       );
       return;
     }
 
-    setState(() => _saving = true);
+    // New OSM boundaries must be saved inactive first.
+    // Admin can review the saved polygon and activate it separately.
+    final bool importedBoundary =
+        !_isEditing && _selectedBoundaryKey != null;
+
+    final bool activeToSave = importedBoundary ? false : _active;
+
+    if (importedBoundary) {
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Save boundary for review?'),
+          content: const Text(
+            'Ye boundary inactive save hogi. Map aur details check '
+            'karne ke baad Manage Saved Zones se activate kar sakte ho.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Save for Review'),
+            ),
+          ],
+        ),
+      );
+
+      if (confirm != true || !mounted) return;
+    }
 
     final wasEditing = _isEditing;
     final editingId = _selectedZoneId;
+    final savedPoints = List<LatLng>.from(_points);
+
+    setState(() => _saving = true);
 
     try {
       final zoneData = <String, dynamic>{
         'name': name,
+        'state': state,
         'city': city,
         'locality': locality,
         'society': society,
         'sector': society,
         'area': locality,
         'pinCode': pinCode,
-        'isActive': _active,
+        'isActive': activeToSave,
         'type': 'polygon',
-        'coordinates': _points
+        'coordinates': savedPoints
             .map(
               (point) => {
                 'latitude': point.latitude,
@@ -252,31 +384,55 @@ class _ZonesScreenState extends State<ZonesScreen> {
       } else {
         zoneData['createdAt'] = FieldValue.serverTimestamp();
 
+        // Record the source for audit/debugging.
+        if (importedBoundary) {
+          final selectedCandidate = _boundaryCandidates.where(
+            (candidate) =>
+                _boundaryKey(candidate) == _selectedBoundaryKey,
+          );
+
+          if (selectedCandidate.isNotEmpty) {
+            final candidate = selectedCandidate.first;
+
+            zoneData['boundarySource'] = 'openstreetmap';
+            zoneData['osmType'] = candidate.osmType;
+            zoneData['osmId'] = candidate.osmId;
+            zoneData['osmDisplayName'] = candidate.displayName;
+          }
+        } else {
+          zoneData['boundarySource'] = 'manual';
+        }
+
         final doc = await _zones.add(zoneData);
         savedId = doc.id;
       }
 
       if (!mounted) return;
 
-      final savedPoints = List<LatLng>.from(_points);
-
       setState(() {
-        _selectedZoneId = savedId;
-        _points.clear();
+        // Clear the form after saving, so the next save creates a new zone.
+        _selectedZoneId = null;
+        _selectedBoundaryKey = null;
+
         _nameController.clear();
+        _stateController.clear();
         _cityController.clear();
         _localityController.clear();
         _societyController.clear();
         _pinCodeController.clear();
-        _active = true;
+
+        _points.clear();
+        _active = false;
       });
 
       await _focusZone(savedPoints);
 
       _message(
-        wasEditing
-            ? 'Zone "$name" update ho gaya!'
-            : 'Zone "$name" save ho gaya!',
+        importedBoundary
+            ? 'Boundary review ke liye inactive save ho gayi (ID: $savedId).'
+            : wasEditing
+                ? 'Zone "$name" update ho gaya!'
+                : 'Zone "$name" save ho gaya!',
       );
     } on FirebaseException catch (e) {
       _message(
@@ -292,10 +448,7 @@ class _ZonesScreenState extends State<ZonesScreen> {
     }
   }
 
-  Future<void> _toggleZone(
-    String id,
-    bool currentlyActive,
-  ) async {
+  Future<void> _toggleZone(String id, bool currentlyActive) async {
     try {
       await _zones.doc(id).update({
         'isActive': !currentlyActive,
@@ -317,10 +470,7 @@ class _ZonesScreenState extends State<ZonesScreen> {
     }
   }
 
-  Future<void> _deleteZone(
-    String id,
-    String name,
-  ) async {
+  Future<void> _deleteZone(String id, String name) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -404,6 +554,7 @@ class _ZonesScreenState extends State<ZonesScreen> {
       );
     }
 
+    // The selected search result is displayed as the orange preview.
     if (_points.length >= 3) {
       polygons.add(
         Polygon(
@@ -425,9 +576,7 @@ class _ZonesScreenState extends State<ZonesScreen> {
         Marker(
           markerId: MarkerId('new-point-$i'),
           position: _points[i],
-          infoWindow: InfoWindow(
-            title: 'Boundary point ${i + 1}',
-          ),
+          infoWindow: InfoWindow(title: 'Boundary point ${i + 1}'),
         ),
     };
   }
@@ -470,6 +619,86 @@ class _ZonesScreenState extends State<ZonesScreen> {
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBoundarySearchSection() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _sectionTitle('Find Available Boundaries'),
+            const Text(
+              'Area, City aur State bharo. Available OSM polygons '
+              'milne par unhe map par preview kar sakte ho.',
+            ),
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: _searchingBoundaries || _saving
+                  ? null
+                  : _searchBoundaries,
+              icon: _searchingBoundaries
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(Icons.travel_explore),
+              label: Text(
+                _searchingBoundaries
+                    ? 'Searching Boundaries...'
+                    : 'Search Available Boundaries',
+              ),
+              style: FilledButton.styleFrom(
+                backgroundColor: _orange,
+                minimumSize: const Size.fromHeight(48),
+              ),
+            ),
+            if (_boundaryCandidates.isNotEmpty) ...[
+              const SizedBox(height: 18),
+              _sectionTitle('Boundary Candidates'),
+              const Text(
+                'Result select karne se map par preview aayega. '
+                'Har result exact society boundary ho, zaroori nahi.',
+              ),
+              const SizedBox(height: 8),
+              ..._boundaryCandidates.map((candidate) {
+                final key = _boundaryKey(candidate);
+                final selected = key == _selectedBoundaryKey;
+
+                return Card(
+                  color: selected
+                      ? _orange.withValues(alpha: 0.10)
+                      : Colors.white,
+                  child: ListTile(
+                    leading: Icon(
+                      selected
+                          ? Icons.check_circle
+                          : Icons.pentagon_outlined,
+                      color: selected ? _orange : Colors.grey,
+                    ),
+                    title: Text(candidate.name),
+                    subtitle: Text(
+                      '${candidate.osmType} • ${candidate.osmId}\n'
+                      '${candidate.points.length} boundary points',
+                    ),
+                    isThreeLine: true,
+                    trailing: const Icon(Icons.visibility_outlined),
+                    onTap: _saving
+                        ? null
+                        : () => _selectBoundary(candidate),
+                  ),
+                );
+              }),
+            ],
+          ],
         ),
       ),
     );
@@ -520,9 +749,7 @@ class _ZonesScreenState extends State<ZonesScreen> {
                               fontWeight: FontWeight.bold,
                             ),
                           ),
-                          const Text(
-                            'Manage service coverage areas',
-                          ),
+                          const Text('Manage service coverage areas'),
                         ],
                       ),
                     ),
@@ -537,9 +764,7 @@ class _ZonesScreenState extends State<ZonesScreen> {
                     ),
                   ],
                 ),
-
                 const SizedBox(height: 18),
-
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
@@ -561,15 +786,11 @@ class _ZonesScreenState extends State<ZonesScreen> {
                         Icons.pause_circle_outline,
                         size: 18,
                       ),
-                      label: Text(
-                        '${docs.length - activeCount} Inactive',
-                      ),
+                      label: Text('${docs.length - activeCount} Inactive'),
                     ),
                   ],
                 ),
-
                 const SizedBox(height: 16),
-
                 Card(
                   clipBehavior: Clip.antiAlias,
                   child: SizedBox(
@@ -583,18 +804,17 @@ class _ZonesScreenState extends State<ZonesScreen> {
                         _mapController = controller;
 
                         final selectedId = _selectedZoneId;
-
                         if (selectedId != null) {
                           for (final doc in docs) {
                             if (doc.id == selectedId) {
                               _focusZone(
-                                _readCoordinates(
-                                  doc.data()['coordinates'],
-                                ),
+                                _readCoordinates(doc.data()['coordinates']),
                               );
                               break;
                             }
                           }
+                        } else if (_points.isNotEmpty) {
+                          _focusZone(List<LatLng>.from(_points));
                         }
                       },
                       onTap: _saving
@@ -602,6 +822,7 @@ class _ZonesScreenState extends State<ZonesScreen> {
                           : (point) {
                               setState(() {
                                 _points.add(point);
+                                _selectedZoneId = null;
                               });
                             },
                       mapType: MapType.normal,
@@ -613,23 +834,23 @@ class _ZonesScreenState extends State<ZonesScreen> {
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 8),
-
                 const Text(
-                  'Green = Active  •  Blue = Selected  •  Orange = New boundary',
+                  'Green = Active • Blue = Selected • Orange = New/Preview',
                   style: TextStyle(
                     color: Color(0xFF707070),
                     fontSize: 12,
                   ),
                 ),
-
                 const SizedBox(height: 20),
 
+                // Boundary search controls.
+                _buildBoundarySearchSection(),
+
+                const SizedBox(height: 20),
                 _sectionTitle(
                   _isEditing ? 'Edit Service Zone' : 'Add New Service Zone',
                 ),
-
                 Card(
                   child: Padding(
                     padding: const EdgeInsets.all(16),
@@ -641,6 +862,12 @@ class _ZonesScreenState extends State<ZonesScreen> {
                           label: 'Zone Name',
                           hint: 'e.g. Gaur City Zone 1',
                           icon: Icons.edit_location_alt,
+                        ),
+                        _textField(
+                          controller: _stateController,
+                          label: 'State',
+                          hint: 'e.g. Uttar Pradesh',
+                          icon: Icons.map_outlined,
                         ),
                         _textField(
                           controller: _cityController,
@@ -656,7 +883,7 @@ class _ZonesScreenState extends State<ZonesScreen> {
                         ),
                         _textField(
                           controller: _societyController,
-                          label: 'Society / Sector',
+                          label: 'Society / Sector (Optional)',
                           hint: 'e.g. Gaur City Sector 4',
                           icon: Icons.apartment,
                         ),
@@ -668,18 +895,15 @@ class _ZonesScreenState extends State<ZonesScreen> {
                           keyboardType: TextInputType.number,
                           maxLength: 6,
                         ),
-
                         SwitchListTile(
                           contentPadding: EdgeInsets.zero,
                           title: const Text(
                             'Zone Active',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                            ),
+                            style: TextStyle(fontWeight: FontWeight.w600),
                           ),
                           subtitle: Text(
                             _active
-                                ? 'Service enabled'
+                                ? 'Service enabled after save'
                                 : 'Service disabled',
                           ),
                           value: _active,
@@ -690,25 +914,20 @@ class _ZonesScreenState extends State<ZonesScreen> {
                                   setState(() => _active = value);
                                 },
                         ),
-
                         const SizedBox(height: 8),
-
                         Text(
-                          'Draw Zone Boundary',
+                          'Draw / Review Zone Boundary',
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-
                         const SizedBox(height: 6),
-
                         const Text(
-                          'Map par tap karke boundary ke points banao. '
-                          'Kam se kam 3 points zaroori hain.',
+                          'Manual boundary ke liye map par tap karo. '
+                          'Search result select karne par uska polygon preview hoga. '
+                          'Manual taps points add karte hain.',
                         ),
-
                         const SizedBox(height: 12),
-
                         Row(
                           children: [
                             Expanded(
@@ -732,6 +951,7 @@ class _ZonesScreenState extends State<ZonesScreen> {
                                     : () {
                                         setState(() {
                                           _points.clear();
+                                          _selectedBoundaryKey = null;
                                         });
                                       },
                                 icon: const Icon(Icons.delete_outline),
@@ -740,9 +960,7 @@ class _ZonesScreenState extends State<ZonesScreen> {
                             ),
                           ],
                         ),
-
                         const SizedBox(height: 14),
-
                         FilledButton.icon(
                           onPressed: _saving ? null : _saveZone,
                           icon: _saving
@@ -760,14 +978,15 @@ class _ZonesScreenState extends State<ZonesScreen> {
                                 ? 'Saving...'
                                 : _isEditing
                                     ? 'Update Zone'
-                                    : 'Save New Zone',
+                                    : _selectedBoundaryKey != null
+                                        ? 'Save Boundary for Review'
+                                        : 'Save New Zone',
                           ),
                           style: FilledButton.styleFrom(
                             backgroundColor: _orange,
                             minimumSize: const Size.fromHeight(50),
                           ),
                         ),
-
                         if (_isEditing) ...[
                           const SizedBox(height: 8),
                           OutlinedButton.icon(
@@ -783,18 +1002,13 @@ class _ZonesScreenState extends State<ZonesScreen> {
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 24),
-
                 _sectionTitle('Manage Saved Zones'),
-
                 const Text(
-                  'Zone select karo, map boundary par zoom karega. '
-                  'Edit se details badlo aur switch se service on/off karo.',
+                  'Saved zone select karo. Edit se details badlo, '
+                  'switch se service on/off karo.',
                 ),
-
                 const SizedBox(height: 12),
-
                 if (snapshot.hasError)
                   Card(
                     child: Padding(
@@ -818,7 +1032,7 @@ class _ZonesScreenState extends State<ZonesScreen> {
                       padding: EdgeInsets.all(16),
                       child: Text(
                         'Abhi koi saved zone nahi hai. '
-                        'Map par boundary banao aur Save New Zone dabao.',
+                        'Boundary banao ya search karo, phir save karo.',
                       ),
                     ),
                   )
@@ -830,6 +1044,7 @@ class _ZonesScreenState extends State<ZonesScreen> {
                         ? _text(data['name'])
                         : 'Unnamed Zone';
 
+                    final state = _text(data['state']);
                     final city = _text(data['city']);
                     final locality = _text(data['locality']).isNotEmpty
                         ? _text(data['locality'])
@@ -840,14 +1055,12 @@ class _ZonesScreenState extends State<ZonesScreen> {
                         : _text(data['sector']);
 
                     final pinCode = _text(data['pinCode']);
-
                     final enabled = data['isActive'] == true;
-                    final coordinates =
-                        _readCoordinates(data['coordinates']);
-
+                    final coordinates = _readCoordinates(data['coordinates']);
                     final selected = doc.id == _selectedZoneId;
 
                     final locationDetails = [
+                      if (state.isNotEmpty) state,
                       if (city.isNotEmpty) city,
                       if (locality.isNotEmpty) locality,
                       if (society.isNotEmpty) society,
@@ -866,7 +1079,6 @@ class _ZonesScreenState extends State<ZonesScreen> {
                               setState(() {
                                 _selectedZoneId = doc.id;
                               });
-
                               _focusZone(coordinates);
                             },
                             leading: Icon(
@@ -899,9 +1111,7 @@ class _ZonesScreenState extends State<ZonesScreen> {
                               color: selected ? _orange : null,
                             ),
                           ),
-
                           const Divider(height: 1),
-
                           Padding(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 12,
