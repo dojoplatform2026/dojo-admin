@@ -365,3 +365,45 @@ Leave requests must be classified by **when they happen and how long the walker 
 
 ### Implementation status
 These distinct policies are now documented as requirements. The app/backend flows, leave UI, notifications, server-side assignment safeguards and automated tests still require implementation and verification.
+
+
+## Walker attendance activity, unique identity, and performance tiers
+
+### 1. Weekly off versus extra leave
+- The standard company benefit is one approved weekly off per walker per week, scheduled with staffing and customer coverage in mind.
+- Any additional day/shift away from work beyond that approved weekly off must appear in the walker's attendance/activity history with dates, category, request/approval status, reason where permitted, and affected walk occurrences.
+- Distinguish planned full-day leave, multi-day leave, emergency leave during duty, unapproved absence, late arrival, missed walk, and approved weekly off. Do not label an emergency as misconduct automatically; show the recorded event and its reviewed outcome.
+- Pending or rejected leave does not count as approved leave and must not silently change assignments. Admin can review repeat or unusual absence patterns using consistent company policy.
+- Only authorized Admin/Operations users may view sensitive leave reasons; ordinary public/customer-facing profiles must not expose private leave details.
+
+### 2. Stable walker identity
+- Every walker must have one unique, permanent company walkerId in addition to their Firebase/auth UID. The auth UID remains the internal authentication key; walkerId is the readable operational ID displayed in the Admin panel and walker profile.
+- Generate walkerId centrally and uniquely (never from a name or phone number, and never reuse an ID after a walker leaves). Example display format: DW-WKR-000123; the exact sequence/prefix is configurable, but uniqueness and permanence are mandatory.
+- Keep identity separate from rank: a walker's ID never changes when their performance tier changes.
+
+### 3. Performance score and visible tiers
+- Each walker has a performance profile computed from verified operational records, not self-entered claims alone. Candidate signals: on-time arrival/start, walk completion, attendance reliability, customer feedback, safety/custody compliance, incident outcomes and adherence to company procedures.
+- Do not rank walkers solely by number of completed walks or raw customer ratings; account for eligible work opportunities and sample size so new/low-volume walkers are not unfairly penalized. Show “Not enough data” until the minimum evidence threshold is met.
+- Suggested display tiers: **Crown** (top tier), **Gold**, **Silver**, **Standard**, and **Under Review** where an unresolved serious issue requires review. These are proposed labels and should be driven by published, measurable thresholds rather than arbitrary manual preference.
+- The Admin dashboard should show a sortable leaderboard with rank, walkerId, display name, tier badge, score, completed/assigned walks, on-time rate, attendance/absence summary, customer rating with sample count, and safety/incident status. Filters should include date range, city/area, active status and tier.
+- The walker app may show the individual walker's own tier, score trend, key metric breakdown and improvement guidance. Do not expose other walkers' private leave/incident details to walkers or customers.
+- Performance should be recalculated on a defined schedule and after verified material events; retain historical snapshots so ranks can be explained and audited. Apply transparent review/appeal handling for disputed incidents or ratings.
+- A serious safety/custody breach must trigger a human review/eligibility safeguard; a high numeric score must never override safety restrictions or active suspension.
+
+### 4. Fairness and anti-gaming controls
+- Use only verified, policy-approved data. Exclude duplicate/cancelled/test walks and system-caused failures from the wrong person's performance metrics.
+- Separate approved weekly off and approved leave from unapproved absence. Approved time off should not be scored as a missed walk; extra leave must be visible as an activity record, but should not automatically lower performance without a clear, consistently applied policy.
+- Prevent self-editing of score, tier, ranking and verified attendance events. Log Admin adjustments with actor, timestamp, reason and before/after values.
+- Publish score definitions and measurement window to walkers. Support correction of inaccurate records and audit all score/tier changes.
+
+### Acceptance checks
+1. A walker has one permanent unique walkerId, unaffected by tier or rank changes.
+2. Weekly off, extra approved leave, pending/rejected requests, emergency absence and unapproved absence appear as distinct activity types.
+3. Approved leave and weekly off are not miscounted as missed walks; verified unapproved absence is handled by a documented policy.
+4. Leaderboard can sort by score/tier and filter by time window/area; each score has explainable metric components and sufficient-data status.
+5. New walkers are not labelled low-performing solely due to limited sample size.
+6. Customers and other walkers cannot see private leave reasons or confidential incident details.
+7. Serious safety controls override leaderboard rank.
+
+### Implementation status
+This is a documented product specification. The current Admin/Partner apps, Firebase schema, scoring backend, permanent ID generator, activity screens and leaderboard have not yet been verified as implementing these requirements.
