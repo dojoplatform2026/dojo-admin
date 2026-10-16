@@ -237,3 +237,24 @@ These are design requirements for cross-app reconciliation, not implemented prod
 
 ### Implementation status
 This section records the required workflow only. Incident documents, escalation timers, notifications, idempotency controls, security rules and tests have not been implemented or production-verified by this documentation change.
+
+
+## Mandatory walk completion before leaving duty
+
+- Normal rule: a walker must finish every assigned walk occurrence and safely return the dog to the approved customer/guardian handover point before ending that walk, leaving the assigned duty slot, or marking the occurrence complete.
+- A walk is not complete merely because its planned time has passed, the route was started, the walker tapped Complete, or the walker is leaving the area. Completion requires the dog to be safely returned to the authorized customer/guardian and the required completion record to be saved.
+- The app must keep the occurrence visibly **In Progress / Dog in Walker Custody** until the approved return or authorized walker-to-walker handover is confirmed. Do not allow normal shift-end/leave completion while a dog remains in the walker's custody.
+- If the walker cannot safely finish because of a sudden medical/personal emergency, danger, severe weather or another exceptional event, do not force the walker to continue unsafely and do not leave the dog unattended. Immediately contact Operations. The dog must be safely returned to the customer/guardian or handed to an eligible receiving walker only after Operations authorizes the transfer and the required confirmation succeeds.
+- If the app/network/QR fails, the walker must stay with the dog in a safe place and contact Operations for an explicitly authorized fallback. No silent self-transfer, unattended drop-off, or assumed handover is permitted.
+- Operations must keep the incident open and arrange a safe return/backup if the first plan fails. A walk may be recorded as **Interrupted / Safely Returned** or **Transferred to Authorized Backup** rather than falsely marked **Completed**. Apply customer notification and the approved reschedule/cancellation policy.
+- Server-side validation must prevent completion or shift-end actions while custody is unresolved; the same walk must not be completed twice, assigned to two active walkers, or have two simultaneous custodians. Record who confirmed return/transfer, when, and supporting evidence required by policy.
+
+### Acceptance checks
+1. Normal completion is blocked until customer/guardian return confirmation is recorded.
+2. A walker cannot end duty with a dog still in their custody.
+3. An emergency creates an immediate Operations alert and preserves the custody state until safe return/authorized transfer.
+4. An authorized handover changes custody atomically only after recipient confirmation; failed QR/network attempts do not silently transfer custody.
+5. The system never labels an interrupted walk as successfully completed without the required completion and return evidence.
+
+### Implementation status
+This is a mandatory product and safety requirement added to the audit design. It does not mean the mobile apps, Firestore rules, backend validation or tests already enforce it; those require a separate implementation and verification step.
