@@ -208,3 +208,32 @@ These are design requirements for cross-app reconciliation, not implemented prod
 - Test unauthorized recipient, wrong booking QR, expired/replayed QR, network retry, concurrent scans, no signal, emergency during active walk, and attempted departure before confirmed handover.
 
 **Implementation status:** design requirement recorded only. No application code, QR generation/validation, Firestore data, Rules, Functions, or Production configuration was changed.
+
+
+## Incident escalation, customer communication and closure
+
+### 1. One operational record per affected walk occurrence
+- Every scheduled Regular Walk must have a stable occurrence ID linked to the parent booking, scheduled slot, assigned walker, service area and customer.
+- Availability, leave, weather, late arrival, failed contact, backup dispatch, cancellation and dog handover events must be recorded against that occurrence; do not rely only on chat messages or a parent booking status.
+- Every change records actor, timestamp, prior state, new state, reason and any related approval/incident ID. Server timestamps are authoritative.
+
+### 2. Incident ownership and escalation
+- Each active occurrence has one clearly identified Operations owner/on-call queue. Area Lead may triage, contact walkers, propose a backup and submit evidence within assigned scope; company Operations retains final authority for assignment changes, safety overrides, customer-impacting reschedules/cancellations and custody handover authorization.
+- Configure response targets by incident severity and operating hours. Do not hard-code one universal response time for every incident.
+- If the assigned walker is unreachable, late, reports an emergency, or a customer reports a missed walk, create an incident and escalate to the on-call lead/Operations according to the configured target. Escalation must not silently mark the walk complete.
+- For immediate danger, dog-custody risk, severe weather or a possible unattended dog, raise the highest-priority alert immediately; safety action must not wait for a routine SLA timer.
+
+### 3. Customer updates and recovery
+- Notify the customer when assignment changes, a walker is delayed, weather/safety pauses a walk, a replacement is dispatched, a walk is rescheduled/cancelled, or a custody handover is initiated/completed, according to the approved communication policy.
+- Messages must distinguish confirmed facts from estimates. Do not promise a replacement or completion time until Operations has confirmed the replacement and slot.
+- If no safe, eligible backup is available, Operations contacts the customer and applies the approved return/reschedule/cancel/refund policy. Never pressure a walker to continue into a hazardous situation to meet a slot.
+- Keep a delivery outcome per occurrence: completed with required evidence, safely returned/handed over, customer-approved reschedule, company cancellation, or unresolved incident. Unresolved incidents remain visible in Operations until explicitly closed.
+
+### 4. Safe closure and audit
+- An incident may be closed only by an authorized role after required checks are satisfied: dog custody resolved, customer informed where required, occurrence outcome recorded, and any required handover/return evidence attached.
+- Prevent duplicate active assignments and concurrent custody transfers with server-side transaction/atomic validation and idempotency keys. Retrying a request must not create a second dispatch, duplicate handover or duplicate completion.
+- Restrict incident notes, customer contact details, precise location and route evidence to roles with a legitimate operational need; retain them only under the approved retention policy.
+- Test late/no-show escalation, emergency leave mid-walk, no backup available, customer notification failure, weather pause, offline QR handover fallback, duplicate retries and unauthorized closure.
+
+### Implementation status
+This section records the required workflow only. Incident documents, escalation timers, notifications, idempotency controls, security rules and tests have not been implemented or production-verified by this documentation change.
