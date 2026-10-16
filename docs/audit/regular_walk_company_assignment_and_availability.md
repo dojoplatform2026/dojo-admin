@@ -466,3 +466,40 @@ This is a documented product specification. The current Admin/Partner apps, Fire
 
 ### Implementation status
 These are policy/product requirements only. The live payout calculation, earning ledger, bank/UPI settlement, attendance notifications and disciplinary workflow have not been verified as implemented. Rates and settlement cadence remain configurable pending business, legal and finance approval.
+
+
+## Time-based walker pay: guaranteed base plus verified duration
+
+### Recommended model
+- Use a **guaranteed base amount per assigned duty/walk slot plus a transparent time-based component** for eligible actual service time. The exact structure (per walk, per duty slot, or per shift) must be chosen before launch and checked against applicable wage/employment rules.
+- The base guarantees a clearly stated minimum for the defined eligible unit; the time component increases payment according to verified eligible minutes/hours. Do not describe a base as a guaranteed salary unless the contractual employment/payroll model actually provides one.
+- Example for discussion only: a 30-minute walk has a configured base of ₹X covering the first 30 eligible minutes. If an approved service takes longer, additional eligible minutes are paid at ₹Y per minute (or a disclosed hourly rate). A 45-minute eligible walk would then earn ₹X + 15 × ₹Y, subject to the published rounding and authorization rules. ₹X and ₹Y are not yet approved rates.
+- Set separate versioned rates by service type and planned duration if needed (e.g. 20/30/45/60 minutes), and snapshot the applicable rate when the occurrence is assigned/confirmed. Later rate changes must not rewrite earlier earnings.
+- Count only verified service time according to policy: actual start after authorized pickup/start, approved pause rules, and completion/safe-return or authorized handover. Travel time, waiting, weather delays, customer delay and emergency interruptions need explicit treatment in the published rate card; do not silently count or exclude them.
+- If actual duration exceeds the booking due to customer/company-approved extension or a safety-related delay, record the reason and approval/evidence before calculating the extra component. Never encourage a walker to extend a walk merely to increase pay.
+- Define a minimum base for a cancelled, interrupted, transferred or partially completed walk before launch. Credit only the correct walker(s) for verified eligible work; never duplicate full payment to two walkers for one occurrence.
+- Store an immutable earning ledger entry per occurrence with base amount, eligible minutes, time rate, extras/allowances, approved adjustments, gross/net payable, rate version, evidence source, status and timestamps. Retries must be idempotent; only trusted backend/Admin workflows can change rates or settlement status.
+- Show the walker a breakdown for each walk: base, eligible duration, time-based amount, approved extras/adjustments and final amount. Admin should see the same breakdown and an audit trail.
+- Pay on a disclosed settlement cycle (weekly is a possible starting proposal, subject to finance/legal approval), with payment reference, failed-payment retry and dispute process.
+- Do not use unapproved leave, rank, or disciplinary status to silently reduce earned pay. Bonuses/incentives should be separate ledger entries with clear published eligibility. Any deductions/holds require disclosed policy, authorized review and legal compliance.
+- Keep customer charges, walker earnings, company commission/revenue, refunds and payment processing costs in separate ledgers. A customer's total price is not automatically the amount owed to the walker.
+
+### Decisions required before rates are activated
+1. What unit receives the base: each completed walk, each assigned slot, or each paid duty shift?
+2. Which planned duration is covered by the base (for example, the first 30 minutes)?
+3. What is the additional eligible time rate, and how are partial minutes rounded?
+4. Which travel/wait/pause periods count as payable time?
+5. What are the rules for overtime, customer-approved extensions, interruption, cancellation, transfer and weather safety pauses?
+6. What settlement day and payment method will Finance support?
+
+### Acceptance checks
+1. Base and time components are shown separately and reconcile to the total.
+2. Only verified eligible time affects the time-based component; extension requires an auditable reason/approval when policy requires it.
+3. Rates are versioned and historical earnings remain unchanged after future rate edits.
+4. Partial/transfer/interrupted cases follow explicit rules and cannot create duplicate payouts.
+5. A walk completion retry cannot create duplicate earning entries.
+6. Walker and Admin can review the breakdown and raise a dispute.
+7. Rates and settlement rules are not activated in production before business and legal approval.
+
+### Implementation status
+This is the proposed pay-policy specification only. No live rate, payout ledger, time-tracking payroll calculation, or settlement integration has been implemented or verified by this documentation update. Existing ₹75 per walk and ₹149 customer price examples remain drafts and must not be treated as approved rates.
