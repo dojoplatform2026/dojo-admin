@@ -548,3 +548,33 @@ This is the proposed pay-policy specification only. No live rate, payout ledger,
 
 ### Status
 **Design recorded; implementation not yet verified.** No claim is made that the three booking cards, unified occurrence lifecycle, reassignment workflow, earnings ledger or payout calculation are currently implemented. Existing Firestore schema and IDs must be audited before code changes.
+
+
+## Step 1 — Read-only cross-app code audit findings (2026-10-16)
+
+### Files inspected
+- Customer: `lib/features/booking/screens/booking_confirmation_screen.dart` and `lib/features/booking/screens/my_bookings_screen.dart` on `main`.
+- Partner: `lib/screens/home/partner_home_screen.dart` and `lib/features/live_walk/screens/live_walk_screen.dart` on `main`.
+- Admin: `lib/screens/bookings/bookings_screen.dart` and `lib/features/walkers/services/walker_admin_service.dart` on `main`.
+- This was a source-code read-only inspection; no runtime tests, Firestore data inspection, Security Rules audit, or production behavior verification was performed.
+
+### Confirmed code observations
+1. Customer confirmation creates one document in `bookings` and writes fields including `bookingId`, `customerId`, `bookingPlan`, `serviceType`, `scheduledAt`, `duration`, `preferredTime`, `walkCount`, `walkSchedules`, `status: pending`, and `walkerId: null`.
+2. Regular booking currently writes `frequency: daily`, `walksPerWeek: 7`, `walksPerDay`, `planStatus: pending_confirmation`, and `dailyWalkTemplate`.
+3. Date-selection booking currently stores a parent booking with `selectedDates` and `dateSchedules`, and a `walks` list under each date. It does not create a separate booking occurrence document for each scheduled walk in the inspected confirmation code.
+4. The confirmation code maps `_isChooseDates` to `bookingPlan: customize` and `serviceType: custom_walk`; the user-facing product decision is a finite-period Temporary Walk. This naming/semantic mapping needs review before changing data or UI, and existing records must remain compatible.
+5. Partner home reads `bookings` filtered by `walkerId`, then filters today's bookings using `data['date']` and active status. Customer confirmation code shown above writes `scheduledAt` and does not set a top-level `date` in the booking payload. This is a likely cross-app scheduling compatibility risk that needs full helper/status inspection and tests before concluding runtime impact.
+6. Partner live-walk completion writes a separate document to `walks`, with a `bookingId` when provided, then updates the parent `bookings/{bookingId}` status to `completed`. The walk record contains `walkerId`, duration seconds, distance, start/end timestamps, route and return flags; the inspected code does not attach a stable per-scheduled-occurrence ID.
+7. In the inspected live-walk code, `walkType` on the completed walk record is hardcoded to `Regular Walk`, regardless of the booking's actual service type. Confirm whether other paths override this before implementation.
+8. Admin bookings screen streams the `bookings` collection and displays booking-level status, walker and a walk time derived from `walkDateTime`, `scheduledAt` or `bookingDate`. The inspected screen does not expose per-occurrence rows for `walkSchedules`/`dateSchedules`.
+9. `WalkerAdminService` reads `bookings` and walker records; its admin approve/reject/suspend/reactivate/correction actions use a Firestore transaction for walker status plus an `audit_logs` record. This is useful existing behavior, but it is not the booking assignment/reassignment engine.
+
+### Risks to resolve before implementation
+- One parent booking may represent several scheduled walks, while Partner completion updates the parent booking to `completed`. We must verify how multiple daily walks and repeated dates are currently handled to avoid completing a whole plan after only one walk.
+- Top-level schedule field conventions may differ across Customer (`scheduledAt`) and Partner's today filter (`date`). Audit all date parsers, active-status helpers, and existing legacy records before choosing canonical fields.
+- `walks` completion records and parent booking status are written in separate operations in the inspected code. A partial failure could leave the two records inconsistent; idempotent server-authoritative completion is a design requirement, not yet verified as implemented.
+- `dogReturned: true` is written alongside `returnLocationVerified: _sameReturnLocation`; verify the product/safety meaning when the return location differs. A boolean return claim must not be treated as proof of safe custody handover.
+- Booking status vocabulary and per-occurrence lifecycle need a compatibility matrix before any schema migration.
+
+### Step 1 status
+**Partial read-only audit complete for the named files only.** Cross-app schema compatibility is not yet signed off. Next audit: inspect the full schedule/status helper functions, booking list mapping, assignment actions, Firestore Security Rules and repository tests. No files in Customer or Partner were changed; no production data was read or changed; no tests were run in this step.
