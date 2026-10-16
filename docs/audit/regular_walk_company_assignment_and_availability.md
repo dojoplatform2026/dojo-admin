@@ -138,3 +138,24 @@ Exception states should include company-managed `reassignment_required`, `delaye
 - Restart requires an authorized clearance and revalidation of staffing and time feasibility.
 
 **Implementation status:** requirements documented for design only. No app code, Firestore data, Rules, Functions, weather provider, or Production configuration was changed.
+
+
+## Consolidated Company Operations Flow Rules
+
+These are design requirements for cross-app reconciliation, not implemented production rules.
+
+1. **Company authority:** only authorized company roles can approve Regular Walk plans, assign/reassign walkers, approve leave, override weather holds, and clear an affected area for service. UI controls alone are not authorization; backend and Firestore rules must enforce permissions.
+2. **Weekly off:** each active walker gets one planned weekly off in each seven-day roster cycle. Walker may request a preferred day; company approval depends on area/time-window staffing, demand and affected occurrences. Avoid simultaneous leave that breaches coverage requirements.
+3. **Leave lifecycle:** requested -> approved/rejected; support cancellation according to policy and emergency report with immediate alert plus later review. Extended/village leave records a date/time range. Only approved leave blocks planned assignments, but an emergency report triggers immediate safety/operations review.
+4. **Coverage before approval:** before approving leave or weekly off, identify all affected occurrences and record reassignment/rescheduling or an approved service-change decision. Do not silently drop customer walks.
+5. **Assignment eligibility:** assign only an active, approved, appropriately verified walker who covers the service area and has capacity for the full duration plus travel/buffer. Check leave, overlap, availability and current workload.
+6. **Punctuality:** every occurrence has one scheduled local date/time, duration, service area, current owner, status and audit history. Track actual arrival/start/end separately from scheduled time. Delays/missed walks enter the company operations queue and trigger configured alerts.
+7. **Weather/safety override:** severe weather, lightning, flood, dangerous waterlogging or an official hazard can place an area/route on hold. Do not dispatch a primary or backup into a known unsafe route. Only authorized operations clears the hold after reassessment.
+8. **Customer communication:** send a timely, clear notice for delays, reassignment, rescheduling or cancellation. Do not expose a walker's private leave reason. Refund/credit behaviour must follow a separately approved policy.
+9. **Backup and recovery:** backups must independently pass area, time, leave, overlap and safety checks. If no safe feasible backup exists, notify the customer and use the approved reschedule/cancellation policy.
+10. **Auditability and concurrency:** record actor, action, reason, timestamps, prior/new assignment and impacted occurrence IDs. Approval and assignment transactions must recheck staffing/capacity atomically to prevent two concurrent approvals from breaking the minimum coverage rule.
+11. **Privacy and location:** planned availability is separate from online status and GPS. Location tracking follows the active-walk policy; do not use GPS to compel unsafe travel. Restrict access to personal leave notes.
+12. **Cross-app consistency:** Customer requests and receives status/notifications; Partner reports availability, leave and safety incidents and sees assigned work; Admin owns approvals, assignment, backup, area holds and audit history. Canonical status values and transitions must be reconciled across all repositories before implementation.
+13. **Testing and rollout:** add emulator/backend tests for unauthorized actions, concurrent leave approvals, overlap/capacity, backup failure, weather holds, idempotent alerts, rescheduling, and status transitions. Do not deploy rules, functions, indexes or migrate production until schema reconciliation and tests pass.
+
+**Status:** consolidated design recorded; no app code, Firestore data, security rules, backend functions or production settings were changed.
