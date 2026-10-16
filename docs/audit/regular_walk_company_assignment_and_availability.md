@@ -85,3 +85,30 @@ Exception states should include company-managed `reassignment_required`, `delaye
 - Schedule edits do not silently rewrite already completed occurrences.
 
 **Implementation status:** requirements added to this audit design only. No code, database, Rules, Functions, or Production configuration changed.
+
+
+## Weekly off and leave management (user-confirmed requirement; design only)
+
+### Weekly off
+- Every active walker gets one planned weekly off day per seven-day roster cycle.
+- Walker may request a preferred day, but the company approves the final day after checking area/time-slot demand, minimum staffing, assigned Regular Walk occurrences, and backup coverage.
+- If the preferred day leaves a coverage gap, suggest another day. Staffing limits are configurable by area and time window.
+- Do not assign new work on an approved off day. Any existing occurrence must be explicitly reassigned or rescheduled before the off day is finalized; retain the audit trail.
+
+### Emergency leave
+- Partner app lets a walker report/request emergency leave with start/end time, a reason category, and optional note.
+- Urgent submissions alert company operations immediately. Submission does not silently cancel customer walks; operations checks affected occurrences and arranges backup/reassignment, then communicates service changes to affected customers when needed.
+- For genuine immediate emergencies, allow a controlled report first and company review afterward. Record reporter, timestamps, reviewer, decision, and all affected booking changes.
+
+### Village/home visit or multi-day leave
+- Support a leave date/time range, reason category (including village/home visit), and optional note. Encourage advance notice.
+- Company checks commitments, area coverage, staffing and backups before approval. Approved leave blocks assignments for the entire interval, including travel days when included in the request.
+- If existing walks overlap, each affected occurrence needs a documented reassignment/reschedule plan before approval.
+
+### Proposed records and safeguards
+- Leave request fields: `leaveRequestId`, `walkerId`, `leaveType` (`weekly_off`, `emergency`, `extended`), `startAt`, `endAt`, `reasonCategory`, optional `note`, `status`, `requestedAt`, `reviewedAt`, `reviewedBy`, `decisionReason`.
+- Keep leave separate from online presence and walk attendance. Only authorized company roles approve/reject. Prevent overlapping approved leave and assignments during approved leave.
+- Keep personal leave notes private; customer messages should explain service reassignment without revealing private reasons.
+- Test concurrent leave requests, staffing minimums, emergency escalation, long leave, overlapping bookings, backup failure and timezone handling.
+
+**Implementation status:** design only; no app code, Firestore data, Rules, Functions, or deployment settings changed.
