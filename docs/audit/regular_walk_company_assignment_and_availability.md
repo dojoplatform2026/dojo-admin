@@ -258,3 +258,24 @@ This section records the required workflow only. Incident documents, escalation 
 
 ### Implementation status
 This is a mandatory product and safety requirement added to the audit design. It does not mean the mobile apps, Firestore rules, backend validation or tests already enforce it; those require a separate implementation and verification step.
+
+
+## Same-day reassignment of remaining walks
+
+- If a walker cannot continue duty for any reason, Operations must review **all of that walker's assignments for the remainder of the current day**, not just the walk currently in progress.
+- Walk occurrences already completed remain completed and are not reassigned. Every not-yet-started occurrence still assigned to the unavailable walker must be placed into a reassignment queue and assigned by Operations to an eligible, available backup walker who is authorized for that service area and time slot.
+- Prioritize each occurrence by its scheduled time, customer impact, dog-care needs and safe travel time. Check that the backup's existing assignments do not overlap and that the new route/time is feasible. Area Lead may recommend the backup; Operations confirms the reassignment.
+- For a walk already in progress, first resolve the current dog's custody: the original walker must safely return the dog to the authorized customer/guardian or complete an Operations-authorized, recipient-confirmed handover. Do not treat reassignment of later walks as permission to abandon the dog or transfer custody without confirmation.
+- Update each affected occurrence's assigned walker and assignment history atomically on the server. Keep the original walker, replacement walker, reason, authorizing Operations user, timestamps and customer-notification result in the audit trail. Prevent two walkers from being actively assigned to the same occurrence.
+- Notify affected customers of the replacement walker and any revised ETA/time, using confirmed information. If no qualified backup is available for one or more occurrences, Operations must contact the customer and apply the approved reschedule/cancellation policy; never leave the occurrence silently unassigned.
+- Emergency absence should trigger this review immediately. Planned leave should trigger a pre-leave coverage check so assignments can be redistributed before the leave begins.
+
+### Acceptance checks
+1. If one walker has six walks assigned today and becomes unavailable after completing two, the four remaining occurrences are all reviewed for reassignment; none is silently left with the unavailable walker.
+2. Completed occurrences remain unchanged; not-yet-started occurrences can be reassigned only to eligible available walkers.
+3. The active walk remains under the current walker's custody responsibility until safe return or an authorized and confirmed handover.
+4. Overlapping schedules, ineligible area coverage and duplicate active assignments are rejected server-side.
+5. Customer updates and any unfilled occurrence remain visible to Operations until resolved.
+
+### Implementation status
+This is a documented requirement only. Automated same-day reassignment, backup eligibility checks, atomic assignment updates, customer notifications and tests are not yet verified as implemented.
