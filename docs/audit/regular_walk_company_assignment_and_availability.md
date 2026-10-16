@@ -578,3 +578,51 @@ This is the proposed pay-policy specification only. No live rate, payout ledger,
 
 ### Step 1 status
 **Partial read-only audit complete for the named files only.** Cross-app schema compatibility is not yet signed off. Next audit: inspect the full schedule/status helper functions, booking list mapping, assignment actions, Firestore Security Rules and repository tests. No files in Customer or Partner were changed; no production data was read or changed; no tests were run in this step.
+
+
+## Admin joining, roles and access-control design — 2026-10-16
+
+### Confirmed current-code observations
+- `lib/services/auth_service.dart` signs in with Firebase email/password, then reads `admin_users/{uid}`; it rejects a missing document or `isActive != true`. The inspected service does not enforce an explicit role allowlist or per-module permissions before returning the admin data.
+- `lib/screens/auth/auth_gate.dart` also checks only that `admin_users/{uid}` exists and `isActive == true` before opening `AdminShell`; the inspected gate does not enforce `role` or permission claims.
+- `lib/screens/dashboard/admin_shell.dart` has a sidebar with several real and placeholder/coming-soon sections. The inspected menu is not filtered by role/permission, so UI visibility alone cannot be considered access control.
+- Existing `walker_admin_service.dart` contains a stricter pattern for its own actions: it checks an active `super_admin` record before allowing sensitive walker-management operations and writes audit logs. This is a useful precedent but does not establish a complete admin-joining system.
+- The inspected paths do not confirm an admin invitation/joining workflow, a Super Admin-controlled role assignment screen, or an end-to-end permission matrix. Firestore Security Rules were not found at the expected root path in this check; actual deployed rules were not inspected.
+
+### Recommended admin joining lifecycle (design; not implemented/verified)
+1. **Super Admin opens Admin Access / Team Management.** Only an authenticated active `super_admin` may create an invitation or grant an admin role.
+2. **Create invitation/request.** Capture work email, full name, proposed role, allowed service area(s) if scoped, modules/actions requested, inviter UID, reason, expiry and status. Do not grant operational access yet.
+3. **Invitee authenticates through Firebase Authentication.** Prefer a secure invitation/claim flow; do not let public sign-up create `admin_users` records. Never store plaintext passwords or invite secrets in Firestore.
+4. **Verify invitation claim.** Bind the invitation to the authenticated UID and verified email, enforce expiry and one-time use on a trusted server/Cloud Function, and re-check that the inviter remains authorized.
+5. **Super Admin approves and activates.** Write the `admin_users/{uid}` role, scope and status via trusted server-side code; require explicit confirmation for privileged changes.
+6. **Least-privilege access.** Inactive, pending, rejected, expired or suspended accounts must be denied access. Role and scope changes take effect server-side, not just by hiding UI controls.
+7. **Audit every sensitive action.** Record actor UID, target UID, action, old/new role and scope, reason, timestamp and outcome; protect audit records from ordinary admins.
+8. **Review and revoke.** Super Admin can suspend/deactivate, change scope, revoke access and review last activity. Revoke pending invitations and invalidate access promptly when a staff member leaves.
+
+### Proposed role types (for approval; avoid creating every role as a separate hard-coded system)
+- `super_admin`: full company-wide access, manages admin invitations/approvals, roles, permission grants, service scopes, security-sensitive settings and audit review. Maintain a protected bootstrap/recovery path; no ordinary admin may grant this role.
+- `operations_admin`: bookings, live operations, walker assignment/reassignment, leave/coverage decisions, incidents and service locations within explicitly granted scope; no role administration or finance settlement by default.
+- `support_admin`: customer/walker support cases and permitted contact/booking read views; no payout changes, role grants or security settings.
+- `finance_admin`: approved earnings review, adjustments under policy, refunds/settlements and finance reports; no walker custody/dispatch authority by default.
+- `analyst` (optional, read-only): approved dashboards and reports with minimized/pseudonymized data; no writes, exports of sensitive data or direct role changes unless explicitly granted.
+- If area-level access is needed, use explicit `scope` such as country/state/city/area IDs rather than creating many new role names. Role grants permissions; scope limits where they apply.
+
+### Access-control requirements
+- Create a centralized permission matrix by module and action (`view`, `create`, `edit`, `approve`, `assign`, `suspend`, `export`, `settle`, `manage_roles`); deny by default.
+- Enforce permissions in trusted backend/Cloud Functions and Firestore Security Rules, not only in Flutter route/menu checks. Validate the target record's area scope server-side.
+- Prevent self-elevation, privilege escalation, granting a role the actor cannot grant, approving one's own privileged request, and unauthorized edits to `role`, `isActive`, scope or permissions.
+- Use immutable server-generated event IDs and server timestamps for audit records; avoid logging passwords, invitation tokens or unnecessary sensitive data.
+- Protect Super Admin recovery with documented ownership verification and break-glass process; do not make a normal `super_admin` invite flow the only recovery mechanism.
+
+### Suggested `admin_users/{uid}` fields (schema proposal; reconcile before implementation)
+`uid`, `fullName`, `email`, `role`, `permissionsVersion`, `scope` (country/state/city/area IDs), `status` (`invited`, `pending_approval`, `active`, `suspended`, `rejected`, `revoked`), `isActive` (temporary backward-compatibility field), `invitedBy`, `approvedBy`, `createdAt`, `activatedAt`, `updatedAt`, `lastRoleChangeAt`, `reason`.
+- Keep invitation documents separate from active admin identity records. Suggested collection `admin_invitations/{invitationId}` stores a token hash/claim reference, target email, proposed role/scope, inviter, expiry, one-time-claim status and audit metadata; secrets must not be stored in plaintext.
+- Exact fields and status values must be checked against current data and rules before migration. Existing `admin_users/{uid}` and Super Admin access must not be broken by an unreviewed schema change.
+
+### Implementation order and status
+1. Locate and audit actual Firestore Rules, Cloud Functions/backend authorization, Firebase Auth setup and any existing admin-user records using safe read-only methods.
+2. Write a role × module × action × scope permission matrix and agree on invitation/approval lifecycle.
+3. Implement server-authoritative invitation claim and Super Admin approval/deactivation on a feature branch.
+4. Add role-filtered UI only as a usability layer; pair it with backend/Rules enforcement.
+5. Test unauthorized, inactive, expired invitation, self-elevation, cross-area access, role change and revocation scenarios using emulator/test fixtures.
+**Status: design documented; end-to-end admin joining, role permissions and Security Rules are not verified as implemented. No admin account, production data or access setting was changed.**
