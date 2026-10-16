@@ -112,3 +112,29 @@ Exception states should include company-managed `reassignment_required`, `delaye
 - Test concurrent leave requests, staffing minimums, emergency escalation, long leave, overlapping bookings, backup failure and timezone handling.
 
 **Implementation status:** design only; no app code, Firestore data, Rules, Functions, or deployment settings changed.
+
+
+## Weather, heavy rain, waterlogging and flood safety
+
+**Product requirement proposed for company operations; design only, not implemented.**
+
+- Treat weather and route safety as a separate operational override, not ordinary walker leave or a punctuality failure.
+- Support area-level weather/safety advisories with severity, affected service areas/routes, start/end or next-review time, source/reporter, review status and audit history.
+- Light rain: walks may proceed only when local conditions, route and pet/walker safety are acceptable.
+- Heavy rain, lightning, severe wind or unsafe visibility: operations may pause, delay or reschedule affected walks. Do not pressure walkers to continue in unsafe conditions.
+- Flooding, dangerous waterlogging, official evacuation/advisory or an impassable route: pause affected-area assignments and do not dispatch a backup into the same hazard.
+- Walker can report unsafe conditions from Partner app; urgent reports alert operations and flag affected occurrences for review. GPS/location must not be used to force a worker into a hazardous route.
+- Company chooses among safe options: wait and reassess, reschedule, cancel/refund or apply a weather policy approved by the business. Do not promise automatic refunds or specific compensation until policy is defined.
+- Notify affected customers with a concise reason and next update/action. Share only necessary safety information; preserve a timestamped event and decision record.
+- Before restarting service, operations rechecks conditions and clears the area/route. Recovery must not create impossible overlapping schedules; calculate travel/buffer and prioritize safety.
+- Weather provider data can be an alert input but must not be treated as proof that an individual street or route is safe. Support human reports and official local advisories too.
+
+### Weather-safety tests
+- Heavy rain/lightning alert pauses or flags affected occurrences according to configured policy.
+- Flood/waterlogging blocks dispatch into the affected area until cleared by authorized operations.
+- A backup walker is not assigned through a flagged hazardous route.
+- Duplicate weather alerts do not send repeated customer notifications for the same event.
+- Affected bookings retain original schedule and audit history when delayed/rescheduled/cancelled.
+- Restart requires an authorized clearance and revalidation of staffing and time feasibility.
+
+**Implementation status:** requirements documented for design only. No app code, Firestore data, Rules, Functions, weather provider, or Production configuration was changed.
