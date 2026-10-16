@@ -53,3 +53,35 @@ This avoids one recurring booking document being overloaded with every daily exe
 
 ## Implementation status
 This file records the requirement and proposed workflow only. No application code, rules, Production data, or deployment configuration was changed.
+
+
+## Priority clarification: time-to-time execution (highest priority)
+
+The primary success criterion is that each scheduled walk is delivered on time, not merely that a recurring plan has a walker assigned.
+
+### Proposed time-control rules
+- Every planned walk occurrence must have a local date, start time, duration, pickup/service area and a clear status.
+- Store scheduled timestamps consistently (Firestore Timestamp in UTC); display and schedule using the service location's local time zone (India: `Asia/Kolkata` for current launch areas).
+- Availability windows must cover the full walk duration plus configurable travel/buffer time.
+- Before assignment, check overlapping jobs, travel feasibility, approved area, leave and daily workload.
+- Generate a separate occurrence for each scheduled walk; use an idempotent occurrence key so retries do not create duplicate walks.
+- Set reminder/alert thresholds as company configuration (for example, upcoming, due, late and missed); these are proposed configurable thresholds, not fixed product promises.
+- If the primary walker has not acknowledged or arrived within the configured window, alert operations and route the case to the company's reassignment/backup queue.
+- Keep planned availability separate from online presence and live GPS. Track GPS only during an active walk under the app's location policy.
+- Record scheduled time, actual arrival, actual start/end, delay reason, reassignment and who handled each action for operational reporting.
+
+### Time-based states to consider
+`scheduled` -> `assigned` -> `accepted` -> `walker_arriving` -> `picked_up` -> `walking` -> `completed`
+
+Exception states should include company-managed `reassignment_required`, `delayed`, `missed`, `cancelled`, and `rescheduled` as separately modelled fields or controlled statuses after final state design. Do not mix plan status with an individual occurrence status.
+
+### Required time-related tests
+- Assignment at an overlapping slot is rejected.
+- Assignment is rejected if travel/buffer time makes the next job infeasible.
+- A walk crossing midnight or a daylight/time-zone boundary is handled consistently.
+- Reminder and late alerts fire once per occurrence despite retries.
+- Delayed/missed occurrences enter the company operations queue.
+- Reassignment preserves the original audit history and prevents two walkers being treated as active assignees.
+- Schedule edits do not silently rewrite already completed occurrences.
+
+**Implementation status:** requirements added to this audit design only. No code, database, Rules, Functions, or Production configuration changed.
