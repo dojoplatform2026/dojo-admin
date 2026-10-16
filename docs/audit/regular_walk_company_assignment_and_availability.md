@@ -407,3 +407,62 @@ These distinct policies are now documented as requirements. The app/backend flow
 
 ### Implementation status
 This is a documented product specification. The current Admin/Partner apps, Firebase schema, scoring backend, permanent ID generator, activity screens and leaderboard have not yet been verified as implementing these requirements.
+
+
+## Excessive absence: progressive notice and fair corrective action
+
+- The company should use a documented, consistent attendance policy. Approved weekly off, approved leave, and genuine emergencies must be distinguished from unapproved absence, repeated last-minute leave, no-show, late arrival and accepted walks missed without valid notice.
+- Use progressive, evidence-based steps rather than an automatic penalty for every leave event:
+  1. **First occurrence / pattern detected:** private in-app notice explaining the attendance record and policy, reminding the walker to request leave early where possible and to notify Operations immediately in emergencies.
+  2. **Repeated verified incidents:** formal warning with dates and affected occurrences, explanation of the impact on customers/team, and a way for the walker to respond or correct inaccurate records.
+  3. **Continued pattern after warning:** Admin review and a documented corrective plan, such as temporary restriction from accepting new regular-walk assignments or additional training, where lawful and proportionate.
+  4. **Serious misconduct or repeated unresolved incidents:** authorized Admin review may suspend assignments or deactivate the account according to published policy, with reasons, evidence, review/appeal path and decision audit.
+- Do not automatically deduct money, withhold already-earned pay, demote a walker, or suspend them solely because they took approved leave or reported a genuine emergency. Financial consequences must be separately reviewed for legal compliance and must not be used as an undisclosed punishment.
+- For each notice/action record the policy code, verified incident IDs, actor, timestamp, message delivered/read status where available, walker's response, decision, review date and appeal outcome.
+- Emergency or safety incidents require immediate operational handling, not a routine warning-first sequence. No discipline should force a walker to continue in an unsafe medical situation or abandon a dog.
+- Keep private health/leave reasons restricted to authorized Admin/Operations; notices to the walker should disclose only the information needed to explain the action.
+
+### Suggested notification copy
+“Your attendance record shows repeated short-notice absence or missed assigned walks. This affects customer commitments and backup planning. Please request planned leave in advance and report emergencies immediately. Approved weekly off and approved leave are not counted as misconduct. If any record is incorrect, submit a response for review. Further verified incidents may lead to an Admin review and restrictions under the company attendance policy.”
+
+### Acceptance checks
+1. Approved leave/weekly off and genuine emergency are not automatically categorized as misconduct.
+2. Repeated verified unapproved absence can trigger escalating private notices and an Admin-reviewed action.
+3. Walker can see relevant dates/records and submit a correction or appeal.
+4. No automatic wage deduction or withholding of earned money is triggered by attendance status alone.
+5. All actions are auditable and restricted to authorized roles.
+
+
+## Walker payment and settlement model
+
+### Recommended initial model: pay per verified completed walk, with transparent settlement
+- Treat walker earnings as **per-walk earnings / service payout**, not a fixed salary by default, unless the company deliberately hires a walker as an employee under a separate employment and payroll arrangement. Legal classification and wage obligations must be reviewed for the actual working relationship and applicable Indian law.
+- Each completed eligible walk creates a server-controlled earning ledger entry linked to a stable walk-occurrence ID, booking ID, walker ID, service type, duration/rate snapshot, gross walker earning, approved bonus/adjustment, net payable amount, status and timestamps.
+- Only the trusted backend/Admin-approved workflow may calculate or alter payouts; the walker app must not be able to edit payout amount, commission, settlement status or paid timestamp.
+- A walk should become payable only after the completion and safe-return/custody outcome is verified under the booking's workflow. A transfer or interrupted walk must follow explicit split/credit rules; never pay two walkers for the same full occurrence by accident.
+- Show a clear earnings screen: Today / This Week / This Month, completed payable walks, pending verification, approved adjustments, payable balance, last settlement and transaction history.
+- Suggested statuses: pending_verification, approved, payable, settlement_processing, paid, held_for_review, adjusted and reversed. A reversal requires an auditable reason; never erase the original ledger entry.
+- Run a regular settlement cycle (for example weekly) after reconciliation; keep a configurable minimum payout threshold only if operationally necessary and disclosed in advance. Publish the payment day, bank/UPI method, failure/retry path and settlement reference. Avoid promising a payout schedule until finance and legal operations confirm it.
+- Keep separate ledger entries for customer gross revenue, walker earnings, company revenue/commission, bonuses/incentives, refunds and approved corrections. Do not mix company revenue with the amount owed to the walker.
+- Existing prior examples such as a ₹75 walker payout per walk and customer prices such as ₹149/30 minutes are drafts, not approved production rates. Keep rates configurable and versioned; snapshot the applicable rate on each booking/occurrence so later price changes do not rewrite past earnings.
+- Any deductions, penalties, refunds or disputed-incident holds must follow published terms, legal review and Admin approval. Never make a silent or arbitrary deduction; preserve the original entry and show the reason and dispute process.
+- If the business chooses a salary/shift-pay model instead, define guaranteed wage, duty hours, overtime, weekly rest, statutory benefits and payroll compliance separately; do not mix salary and per-walk payout without a clear written policy.
+
+### Suggested initial configurable rate structure
+1. walkerBasePayout per eligible walk, configurable by service type and duration.
+2. Explicit approved extras: distance/travel allowance, peak/late slot allowance or difficult-service supplement if company policy uses them.
+3. Quality/attendance incentive only from verified metrics and transparent rules; never penalize approved leave by secretly lowering the per-walk rate.
+4. Admin-approved correction entries with reason and audit history.
+5. Weekly settlement report: opening balance + approved walk earnings + incentives + authorized adjustments − previous payments = closing payable balance.
+
+### Acceptance checks
+1. One eligible occurrence creates at most one base earning entry; retries do not duplicate it.
+2. The rate used is the booking's versioned snapshot and the walker can see its breakdown.
+3. Unverified, cancelled, duplicate or test walks do not create normal completed-walk earnings.
+4. Settlement cannot be marked paid without a confirmed payment reference/result; failures remain visible for retry.
+5. Admin edits require authorization, reason and immutable audit history.
+6. Approved earned amounts cannot be silently withheld or reduced due to unrelated leave/disciplinary status.
+7. Transfer, partial service, refund and dispute cases have explicit payout rules before launch.
+
+### Implementation status
+These are policy/product requirements only. The live payout calculation, earning ledger, bank/UPI settlement, attendance notifications and disciplinary workflow have not been verified as implemented. Rates and settlement cadence remain configurable pending business, legal and finance approval.
