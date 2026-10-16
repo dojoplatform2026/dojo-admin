@@ -1,0 +1,64 @@
+name: DOJO WALK Flutter Web Validation
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - "restore/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python for LGD CSV reconciliation tests
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Test LGD CSV reconciliation tool
+        run: python -m unittest discover -s tool_tests -v
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze Dart and Flutter code
+        run: flutter analyze
+
+      - name: Run unit tests
+        run: flutter test
+
+      - name: Set up Node.js for Firebase Emulator
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Set up Java for Firebase Emulator
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Run Firestore Emulator persistence smoke test
+        run: |
+          npm install --global firebase-tools
+          firebase emulators:exec --project demo-dojo-walk --only firestore "node tool/firestore_emulator_smoke_test.mjs"
+        env:
+          CI: true
+
+      - name: Build Flutter Web (no deployment)
+        run: flutter build web --release

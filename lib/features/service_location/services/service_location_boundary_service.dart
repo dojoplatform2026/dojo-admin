@@ -2,7 +2,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../models/service_location_boundary.dart';
-import '../models/service_location_models.dart';
 
 /// DOJO WALK Admin
 ///
@@ -430,6 +429,77 @@ class ServiceLocationBoundaryService {
       );
 
       _throwIfInvalid(boundary);
+
+      // Enforce parent containment at the point of verification, not just
+      // in UI code. Read the location and its verified parent boundary
+      // before any transaction writes.
+      final locationType = boundary.locationType.trim().toLowerCase();
+      if (locationType == 'area' || locationType == 'locality') {
+        final locationReference = locationType == 'area'
+            ? _firestore.collection('service_areas').doc(boundary.locationId)
+            : _firestore.collection('service_localities').doc(boundary.locationId);
+        final locationSnapshot = await transaction.get(locationReference);
+        if (!locationSnapshot.exists || locationSnapshot.data() == null) {
+          throw StateError('The location linked to this boundary was not found.');
+        }
+
+        final locationData = locationSnapshot.data()!;
+        final parentType = locationType == 'area' ? 'city' : 'area';
+        final parentLocationId = (locationType == 'area'
+                ? locationData['cityId']
+                : locationData['areaId'])
+            ?.toString()
+            .trim() ?? '';
+        if (parentLocationId.isEmpty) {
+          throw StateError('The parent $parentType ID is missing.');
+        }
+
+        final parentLocationReference = locationType == 'area'
+            ? _firestore.collection('service_cities').doc(parentLocationId)
+            : _firestore.collection('service_areas').doc(parentLocationId);
+        final parentLocationSnapshot =
+            await transaction.get(parentLocationReference);
+        if (!parentLocationSnapshot.exists ||
+            parentLocationSnapshot.data() == null) {
+          throw StateError('The parent $parentType location was not found.');
+        }
+
+        final parentBoundaryId =
+            parentLocationSnapshot.data()!['verifiedBoundaryId']
+                ?.toString()
+                .trim() ?? '';
+        if (parentBoundaryId.isEmpty) {
+          throw StateError(
+            'The parent $parentType must have a verified boundary first.',
+          );
+        }
+
+        final parentBoundaryReference = _boundaries.doc(parentBoundaryId);
+        final parentBoundarySnapshot =
+            await transaction.get(parentBoundaryReference);
+        if (!parentBoundarySnapshot.exists ||
+            parentBoundarySnapshot.data() == null) {
+          throw StateError('The verified parent boundary document is missing.');
+        }
+
+        final parentBoundary = ServiceLocationBoundary.fromMap(
+          parentBoundarySnapshot.id,
+          parentBoundarySnapshot.data()!,
+        );
+        if (!parentBoundary.isVerified ||
+            parentBoundary.locationId != parentLocationId ||
+            parentBoundary.locationType.toLowerCase() != parentType) {
+          throw StateError(
+            'The parent boundary reference is not a verified boundary for this location.',
+          );
+        }
+
+        if (!boundary.isContainedBy(parentBoundary)) {
+          throw StateError(
+            'Boundary rejected: the $locationType polygon must remain inside its verified $parentType boundary.',
+          );
+        }
+      }
 
       transaction.update(reference, {
         'verificationStatus':

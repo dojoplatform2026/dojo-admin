@@ -1145,7 +1145,7 @@ class _ServiceLocationScreenState
 
                         if (!isVerified) ...[
                           DropdownButtonFormField<BoundarySourceType>(
-                            value: sourceType,
+                            initialValue: sourceType,
                             decoration: const InputDecoration(
                               labelText: 'Boundary source type',
                               border: OutlineInputBorder(),

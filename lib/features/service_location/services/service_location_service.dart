@@ -404,14 +404,6 @@ class ServiceLocationService {
     }
   }
 
-  Future<void> _requireExistingForUpdate(
-    CollectionReference<Map<String, dynamic>> collection,
-    String id,
-    String label,
-  ) async {
-    await _requireDocument(collection, id, label);
-  }
-
   Future<bool> _hasActiveChild({
     required String parentCollection,
     required String parentId,
@@ -713,19 +705,36 @@ class ServiceLocationService {
       'Country',
     );
 
-    final id = state.id.trim().isEmpty
-        ? _states.doc().id
-        : state.id.trim();
+    final oldId = state.id.trim();
+    final id = oldId.isEmpty ? _states.doc().id : oldId;
+
+    // A State with child Cities must not be reparented: their saved
+    // country/state chain would otherwise become inconsistent.
+    if (oldId.isNotEmpty) {
+      final existingSnapshot = await _states.doc(id).get();
+      if (existingSnapshot.exists) {
+        final oldCountryId =
+            existingSnapshot.data()?['countryId']?.toString() ?? '';
+        if (oldCountryId != countryId) {
+          await _ensureNoChildrenForReparent(
+            parentCollection: 'service_states',
+            parentId: id,
+            label: 'state',
+          );
+        }
+      }
+    }
 
     await _saveUniqueNamedDocument(
       collection: _states,
       documentId: id,
       name: name,
       parentIds: [countryId],
-      isNew: state.id.trim().isEmpty,
+      isNew: oldId.isEmpty,
       data: {
         'countryId': countryId,
         'name': name,
+        'lgdCode': state.lgdCode,
         'isActive': state.isActive,
       },
     );
@@ -911,7 +920,11 @@ class ServiceLocationService {
       name: name,
       parentIds: [countryId, stateId],
       isNew: oldId.isEmpty,
-      data: savedCity.toMap(),
+      data: {
+        ...savedCity.toMap(),
+        // Merge writes must explicitly clear a stale reference code.
+        'lgdCode': savedCity.lgdCode,
+      },
     );
   }
 
@@ -1095,7 +1108,11 @@ class ServiceLocationService {
       name: name,
       parentIds: [countryId, stateId, cityId],
       isNew: oldId.isEmpty,
-      data: savedArea.toMap(),
+      data: {
+        ...savedArea.toMap(),
+        // Merge writes must explicitly clear a stale reference code.
+        'lgdCode': savedArea.lgdCode,
+      },
     );
   }
 

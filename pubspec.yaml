@@ -32,6 +32,8 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
 
+  # In-memory Firestore fake for service-layer tests without native plugin channels.
+  fake_cloud_firestore: ^4.0.0
   flutter_lints: ^6.0.0
 
 flutter:

@@ -147,10 +147,6 @@ class _WalkerDetailsScreenState extends State<WalkerDetailsScreen> {
         verification != 'rejected';
   }
 
-  bool _canReject(WalkerAdminModel walker) {
-    return _canApprove(walker);
-  }
-
   bool _canSuspend(WalkerAdminModel walker) {
     return walker.isApproved &&
         walker.isVerified &&

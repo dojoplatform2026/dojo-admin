@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../../data/reference/india_locations/india_districts.dart';
+import '../../../data/reference/india_locations/india_location_filters.dart';
+import '../../../data/reference/india_locations/india_states.dart';
+import '../../../data/reference/india_locations/india_sub_districts.dart';
 import '../models/service_location_models.dart';
 import '../services/service_location_service.dart';
 
@@ -33,6 +37,9 @@ class _AddLocationDialogState extends State<AddLocationDialog> {
   String? _stateId;
   String? _cityId;
   String? _areaId;
+  IndiaState? _referenceState;
+  IndiaDistrict? _referenceDistrict;
+  IndiaSubDistrict? _referenceSubDistrict;
 
   bool _saving = false;
 
@@ -80,6 +87,7 @@ class _AddLocationDialogState extends State<AddLocationDialog> {
             ServiceState(
               countryId: _countryId!,
               name: name,
+              lgdCode: _referenceState?.lgdCode,
               isActive: false,
             ),
           );
@@ -91,6 +99,7 @@ class _AddLocationDialogState extends State<AddLocationDialog> {
               countryId: _countryId!,
               stateId: _stateId!,
               name: name,
+              lgdCode: _referenceDistrict?.districtCode,
               isServiceActive: false,
             ),
           );
@@ -111,6 +120,7 @@ class _AddLocationDialogState extends State<AddLocationDialog> {
               stateId: city.stateId,
               cityId: city.id,
               name: name,
+              lgdCode: _referenceSubDistrict?.code,
               isServiceActive: false,
             ),
           );
@@ -175,7 +185,7 @@ class _AddLocationDialogState extends State<AddLocationDialog> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: DropdownButtonFormField<T>(
-        value: value,
+        initialValue: value,
         isExpanded: true,
         decoration: InputDecoration(
           labelText: label,
@@ -225,10 +235,47 @@ class _AddLocationDialogState extends State<AddLocationDialog> {
               _stateId = null;
               _cityId = null;
               _areaId = null;
+              _referenceDistrict = null;
+              _referenceSubDistrict = null;
             });
           },
         );
       },
+    );
+  }
+
+  Widget _buildIndiaReferenceStateDropdown() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: DropdownButtonFormField<int>(
+        initialValue: _referenceState?.lgdCode,
+        isExpanded: true,
+        decoration: const InputDecoration(
+          labelText: 'India State / UT reference',
+          helperText: 'Select a reference record; verify source data before production use.',
+          border: OutlineInputBorder(),
+        ),
+        items: indiaStates
+            .map(
+              (state) => DropdownMenuItem<int>(
+                value: state.lgdCode,
+                child: Text(state.displayName),
+              ),
+            )
+            .toList(growable: false),
+        onChanged: _saving
+            ? null
+            : (code) {
+                if (code == null) return;
+                final selected = indiaStates.firstWhere(
+                  (state) => state.lgdCode == code,
+                );
+                setState(() {
+                  _referenceState = selected;
+                  _nameController.text = selected.name;
+                });
+              },
+      ),
     );
   }
 
@@ -263,8 +310,72 @@ class _AddLocationDialogState extends State<AddLocationDialog> {
               _stateId = value;
               _cityId = null;
               _areaId = null;
+              _referenceDistrict = null;
+              _referenceSubDistrict = null;
             });
           },
+        );
+      },
+    );
+  }
+
+  Widget _buildIndiaReferenceDistrictDropdown() {
+    if (_countryId == null || _stateId == null) {
+      return const SizedBox.shrink();
+    }
+
+    return StreamBuilder<List<ServiceState>>(
+      stream: widget.service.watchStates(countryId: _countryId!),
+      builder: (context, snapshot) {
+        final states = snapshot.data ?? [];
+        final matchingStates = states.where((state) => state.id == _stateId);
+        if (matchingStates.isEmpty || matchingStates.first.lgdCode == null) {
+          return const Padding(
+            padding: EdgeInsets.only(bottom: 12),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'District reference list requires a State selected from the India reference list. You can still enter the name manually.',
+                style: TextStyle(fontSize: 12, color: Colors.black54),
+              ),
+            ),
+          );
+        }
+
+        final districts = filterDistrictsForStateLgdCode(
+          matchingStates.first.lgdCode!,
+        );
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: DropdownButtonFormField<String>(
+            initialValue: _referenceDistrict?.districtCode,
+            isExpanded: true,
+            decoration: const InputDecoration(
+              labelText: 'India District reference (optional)',
+              helperText: 'Filtered by the selected State / UT.',
+              border: OutlineInputBorder(),
+            ),
+            items: districts
+                .map(
+                  (district) => DropdownMenuItem<String>(
+                    value: district.districtCode,
+                    child: Text(district.districtName),
+                  ),
+                )
+                .toList(growable: false),
+            onChanged: _saving
+                ? null
+                : (code) {
+                    if (code == null) return;
+                    final selected = districts.firstWhere(
+                      (district) => district.districtCode == code,
+                    );
+                    setState(() {
+                      _referenceDistrict = selected;
+                      _nameController.text = selected.districtName;
+                    });
+                  },
+          ),
         );
       },
     );
@@ -303,7 +414,91 @@ class _AddLocationDialogState extends State<AddLocationDialog> {
             setState(() {
               _cityId = value;
               _areaId = null;
+              _referenceSubDistrict = null;
             });
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildIndiaReferenceSubDistrictDropdown() {
+    if (_cityId == null) return const SizedBox.shrink();
+
+    return FutureBuilder<ServiceCity?>(
+      future: widget.service.getCity(_cityId!),
+      builder: (context, citySnapshot) {
+        final city = citySnapshot.data;
+        if (city == null || citySnapshot.hasError) {
+          return const Padding(
+            padding: EdgeInsets.only(bottom: 12),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Sub-district reference list needs a saved District with an LGD code. Manual entry remains available.',
+                style: TextStyle(fontSize: 12, color: Colors.black54),
+              ),
+            ),
+          );
+        }
+
+        return StreamBuilder<List<ServiceState>>(
+          stream: widget.service.watchStates(countryId: city.countryId),
+          builder: (context, stateSnapshot) {
+            final matching = (stateSnapshot.data ?? [])
+                .where((state) => state.id == city.stateId);
+            if (matching.isEmpty ||
+                matching.first.lgdCode == null ||
+                city.lgdCode == null ||
+                city.lgdCode!.trim().isEmpty) {
+              return const Padding(
+                padding: EdgeInsets.only(bottom: 12),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Sub-district reference list needs LGD codes on both the selected State and District. Manual entry remains available.',
+                    style: TextStyle(fontSize: 12, color: Colors.black54),
+                  ),
+                ),
+              );
+            }
+
+            final subDistricts = filterSubDistrictsForStateAndDistrict(
+              stateLgdCode: matching.first.lgdCode!,
+              districtLgdCode: city.lgdCode!,
+            );
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: DropdownButtonFormField<String>(
+                initialValue: _referenceSubDistrict?.code,
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  labelText: 'India Sub-district reference (optional)',
+                  helperText: 'Filtered by both State and District LGD codes.',
+                  border: OutlineInputBorder(),
+                ),
+                items: subDistricts
+                    .map(
+                      (item) => DropdownMenuItem<String>(
+                        value: item.code,
+                        child: Text(item.name),
+                      ),
+                    )
+                    .toList(growable: false),
+                onChanged: _saving
+                    ? null
+                    : (code) {
+                        if (code == null) return;
+                        final selected = subDistricts.firstWhere(
+                          (item) => item.code == code,
+                        );
+                        setState(() {
+                          _referenceSubDistrict = selected;
+                          _nameController.text = selected.name;
+                        });
+                      },
+              ),
+            );
           },
         );
       },
@@ -357,7 +552,7 @@ class _AddLocationDialogState extends State<AddLocationDialog> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 DropdownButtonFormField<int>(
-                  value: _level,
+                  initialValue: _level,
                   isExpanded: true,
                   decoration: const InputDecoration(
                     labelText: 'Location type',
@@ -381,6 +576,9 @@ class _AddLocationDialogState extends State<AddLocationDialog> {
                             _stateId = null;
                             _cityId = null;
                             _areaId = null;
+                            _referenceState = null;
+                            _referenceDistrict = null;
+                            _referenceSubDistrict = null;
 
                             _nameController.clear();
                             _codeController.clear();
@@ -393,7 +591,13 @@ class _AddLocationDialogState extends State<AddLocationDialog> {
 
                 if (_level >= 1) _buildCountryDropdown(),
 
+                if (_level == 1) _buildIndiaReferenceStateDropdown(),
+
                 if (_level >= 2) _buildStateDropdown(),
+
+                if (_level == 2) _buildIndiaReferenceDistrictDropdown(),
+
+                if (_level == 3) _buildIndiaReferenceSubDistrictDropdown(),
 
                 if (_level >= 3) _buildCityDropdown(),
 

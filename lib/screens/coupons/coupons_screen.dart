@@ -155,7 +155,7 @@ class _CouponsScreenState extends State<CouponsScreen> {
                         ),
                         const SizedBox(height: 12),
                         DropdownButtonFormField<String>(
-                          value: type,
+                          initialValue: type,
                           decoration: const InputDecoration(
                             labelText: 'Discount Type',
                             border: OutlineInputBorder(),

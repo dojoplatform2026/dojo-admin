@@ -322,7 +322,7 @@ class _ServiceBoundaryDialogState
         ),
         const SizedBox(height: 12),
         DropdownButtonFormField<BoundarySourceType>(
-          value: _sourceType,
+          initialValue: _sourceType,
           decoration: const InputDecoration(
             labelText: 'Source Type',
             border: OutlineInputBorder(),
