@@ -279,3 +279,24 @@ This is a mandatory product and safety requirement added to the audit design. It
 
 ### Implementation status
 This is a documented requirement only. Automated same-day reassignment, backup eligibility checks, atomic assignment updates, customer notifications and tests are not yet verified as implemented.
+
+
+## Leave approval requires same-day walk coverage or explicit Admin exception
+
+- A walker may submit planned leave, but the leave request must remain **Pending Admin Approval** until an authorized Admin explicitly approves it. Submitting a request, informing an Area Lead, or marking oneself unavailable does not by itself approve leave.
+- Before approval, Operations/Admin must review every walk occurrence assigned to that walker for the requested date/time range, including all remaining same-day walks, and arrange eligible backup coverage or an approved customer reschedule/cancellation for each affected occurrence.
+- If no eligible, available backup walker can accept one or more occurrences, the request must be escalated to Admin. **Do not approve leave while any affected occurrence remains silently unassigned or has no recorded safe customer outcome**, unless an authorized Admin records an explicit exception with a reason and customer-care plan.
+- Admin approval must record the approving Admin UID, decision timestamp, requested leave range, coverage plan, affected occurrence IDs, replacement walker IDs or explicit exception, and reason. Notify the walker only after the decision is saved successfully.
+- The system must block the walker from being marked as on approved leave and prevent new assignments in the approved leave window until approval is recorded. A pending/rejected request must not silently change assignment eligibility.
+- Emergency exception: if a genuine immediate medical, personal-safety or other urgent event prevents the walker from continuing, do not trap or endanger the person or dog by enforcing routine approval first. The walker must alert Operations immediately; Operations/Admin activates the emergency coverage workflow, resolves dog custody safely, and records the emergency decision. This is an emergency response, not automatic approval of planned leave.
+- Planned leave should be requested early enough for coverage planning. Admin may approve, reject, or ask for changes based on staffing, service-area coverage, schedule overlap and customer impact. Approval must not be delegated to the walker themselves.
+
+### Acceptance checks
+1. A planned leave request stays pending until an authorized Admin approval is saved.
+2. If no backup is available for a scheduled walk, the request is routed to Admin and cannot be silently auto-approved.
+3. Admin can see all affected occurrences and their coverage/outcome before deciding.
+4. Pending or rejected leave does not remove the walker's assignments or mark the walker on leave.
+5. An urgent emergency can trigger immediate safety handling without waiting for ordinary planned-leave approval, with an auditable Operations/Admin record.
+
+### Implementation status
+This policy is documented here only. The leave-request UI, Admin approval workflow, coverage gate, server-side enforcement and tests have not yet been implemented or verified.
