@@ -503,3 +503,48 @@ These are policy/product requirements only. The live payout calculation, earning
 
 ### Implementation status
 This is the proposed pay-policy specification only. No live rate, payout ledger, time-tracking payroll calculation, or settlement integration has been implemented or verified by this documentation update. Existing ₹75 per walk and ₹149 customer price examples remain drafts and must not be treated as approved rates.
+
+
+## Unified booking-card and company operations flow — 2026-10-16
+
+### Customer booking cards
+- **Walk Now**: one immediate/near-term walk. Create one booking and one walk occurrence; search for an eligible available walker and escalate visibly if no eligible walker is found.
+- **Temporary Walk**: a finite set of dates/times. Validate availability across the entire requested period before confirmation; create a separate occurrence for each scheduled walk.
+- **Regular Walk**: a repeating schedule. Validate the requested recurring slots and coverage; create/maintain a separate occurrence for every due walk, with explicit rules for schedule edits, pauses and cancellation.
+- Keep the customer-facing booking cards separate and simple, but use one shared company assignment, attendance, verified-duration and earnings pipeline behind all three types.
+
+### Canonical records and IDs
+- A customer booking has one stable `bookingId`; each scheduled execution has a unique stable `walkOccurrenceId` and its own lifecycle, assigned walker, timestamps, safety/custody outcome and earnings state.
+- Suggested illustrative IDs only: `DW-BOOK-...` and `DW-WALK-...`. The final ID format must be checked against current repository conventions before implementation; do not rename or rewrite existing IDs blindly.
+- Retries must be idempotent. One occurrence must not have two active assignments, duplicate completion, duplicate earnings, or simultaneous custodians.
+
+### Shared occurrence lifecycle (draft)
+`scheduled → assignment_pending → assigned → accepted → in_progress → completed_pending_verification → verified → payable → paid`.
+- Add explicit exception paths for `cancelled`, `assignment_failed/escalated`, `interrupted`, `transfer_pending`, `held_for_review` and `reassigned`; define allowed transitions and authorization before implementation.
+- The exact status names must be reconciled with existing customer, partner, admin and backend code before any schema change.
+
+### Assignment and coverage rules
+- Walk Now prioritizes a prompt eligible assignment; Temporary validates all requested occurrences; Regular validates recurring slots and keeps future occurrences visible to Operations.
+- Eligibility must consider active/approved walker status, activated service-area coverage, slot availability, schedule conflicts and feasible travel time. Client-side checks alone are not authoritative.
+- A leave/absence event triggers review of affected not-yet-started occurrences. Completed occurrences remain unchanged. If no eligible backup is available, escalate to Operations/Admin; never silently leave a walk unassigned.
+- During an active walk, assignment changes do not transfer dog custody. Resolve safe return or an authorized, recipient-confirmed handover as a separate controlled workflow.
+
+### Shared attendance and earnings pipeline
+- Record start/completion evidence and eligible duration per occurrence. Publish rules for travel, waiting, pauses, extensions, weather, cancellation, interruption and handover before enabling time-based pay.
+- Proposed earnings model: a configurable base for a defined eligible walk/slot plus a transparent amount for verified eligible extra time. The base unit, rate values, duration coverage, rounding and settlement cadence remain undecided pending business/finance/legal approval.
+- Earnings are derived from the occurrence and a versioned rate snapshot, recorded in an idempotent server-authoritative ledger. Customer charges, walker earnings, company revenue, refunds and adjustments remain separate.
+
+### Admin cards (proposed UI, not claimed implemented)
+- Live Operations; Walk Now; Temporary Bookings; Regular Walks; Walker Attendance; Leave & Weekly Off; Backup & Reassignment; Walker Performance; Walker Earnings; Payments & Settlements.
+- Every exception card should expose owner, severity, affected occurrence(s), next action, timestamps and audit history.
+
+### Audit/implementation sequence
+1. Read-only audit of existing booking creation, schedule generation, assignment, start/complete actions and Firestore document shapes across Admin, Customer and Partner.
+2. Build a field-by-field compatibility matrix before choosing canonical field names or migrating legacy data.
+3. Define the occurrence status/transition matrix, permissions, idempotency and custody/transfer rules.
+4. Define the base-plus-time pay unit and all edge-case rules; keep rates disabled until approved.
+5. Implement only on a feature branch, add automated tests, run analysis/tests, and report exact evidence.
+6. No production data migration, deployed rules, merge to main or deployment without explicit approval.
+
+### Status
+**Design recorded; implementation not yet verified.** No claim is made that the three booking cards, unified occurrence lifecycle, reassignment workflow, earnings ledger or payout calculation are currently implemented. Existing Firestore schema and IDs must be audited before code changes.
