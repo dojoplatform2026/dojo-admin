@@ -300,3 +300,24 @@ This is a documented requirement only. Automated same-day reassignment, backup e
 
 ### Implementation status
 This policy is documented here only. The leave-request UI, Admin approval workflow, coverage gate, server-side enforcement and tests have not yet been implemented or verified.
+
+
+## Emergency leave: auto-reassign first, Admin decision if no backup
+
+- For an emergency leave/unavailability event, the system should immediately attempt **automatic reassignment** of the affected walk occurrences to eligible, available backup walkers.
+- Auto-reassignment is allowed only after server-side checks confirm the backup is active/approved, covers the required area and time slot, has no schedule conflict, and can reasonably reach the walk. Assignment changes must be atomic/idempotent and recorded in the audit trail.
+- If a suitable backup is found, automatically reassign the not-yet-started affected occurrences, record the reason as emergency coverage, and notify Operations and affected customers with confirmed information. The event remains visible to Operations for oversight.
+- If no suitable backup is available, auto-assignment fails, or a required validation cannot be completed, **escalate immediately to Admin/Operations approval**. Do not leave affected walks silently unassigned, and do not treat the emergency request as routine approved leave without an Admin decision.
+- Admin/Operations then decides the safe plan for each uncovered occurrence: manual backup assignment, customer-approved reschedule, or the approved cancellation/refund process. Record the decision, responsible Admin, timestamp and customer communication outcome.
+- This automated reassignment of future walks must never transfer custody of a dog already on an active walk. For an active walk, the current walker remains responsible for the dog until safe return to the authorized customer/guardian or an Operations-authorized and recipient-confirmed handover. If neither can be safely arranged immediately, raise a critical incident and keep the dog attended in a safe location while Operations coordinates help.
+- Emergency handling must not force a person in immediate medical danger to continue working. Escalation and human safety are immediate; dog custody and customer care must be coordinated in parallel.
+
+### Acceptance checks
+1. Emergency event + eligible backup available: remaining not-yet-started walks are automatically reassigned and audited.
+2. Emergency event + no eligible backup: Admin/Operations receives an immediate actionable alert; the uncovered occurrences remain visible until resolved.
+3. Auto-assignment errors or ambiguous availability do not silently mark the walker on leave or leave bookings unowned.
+4. Active dog custody is not changed by future-walk auto-reassignment.
+5. Customer notifications reflect confirmed changes only.
+
+### Implementation status
+This is the intended policy documented for implementation. Automated emergency reassignment, availability checks, alerts, Admin approval UI and server-side enforcement are not yet verified as implemented.
