@@ -321,3 +321,47 @@ This policy is documented here only. The leave-request UI, Admin approval workfl
 
 ### Implementation status
 This is the intended policy documented for implementation. Automated emergency reassignment, availability checks, alerts, Admin approval UI and server-side enforcement are not yet verified as implemented.
+
+
+## Separate leave policies: during-duty emergency, full-day leave, and multi-day planned leave
+
+Leave requests must be classified by **when they happen and how long the walker is unavailable**. Do not apply one identical approval flow to every leave type.
+
+### A. Emergency leave during an active duty slot / active walk
+- This is an immediate safety/medical/personal emergency while the walker is already on duty; it is not a routine planned-leave request.
+- Prioritize immediate human safety and alert Operations at once. Do not require the walker to wait for routine Admin approval before seeking urgent help.
+- If the walker has not yet picked up a dog and only future walks are affected, immediately try eligible automatic reassignment for the remaining not-yet-started occurrences.
+- If the walker currently has a dog, separately start the urgent safe-return/authorized-handover procedure. The dog must not be abandoned or left unattended; future-walk auto-reassignment does not change active custody.
+- If eligible backup assignment succeeds for future walks, record it and notify Operations/customers. If no backup is found, validation fails, or active custody needs human coordination, escalate immediately to Admin/Operations for a safe decision.
+- Record emergency type, report time, affected occurrence IDs, assignment/handover actions, decision-maker and final outcomes. Emergency reports must not be silently treated as ordinary leave approval.
+
+### B. Full-day leave (one complete day)
+- A walker may request a planned full-day leave before the day starts.
+- Admin/Operations checks every assigned occurrence for that date, including morning, afternoon and evening slots.
+- Approve when all affected walks have eligible confirmed coverage or an explicitly approved customer outcome (such as rescheduling/cancellation under policy). If any occurrence remains uncovered, keep the request pending and route it to Admin/Operations; do not silently approve.
+- Once approved, mark the walker unavailable for the approved date and prevent new assignments for that period. Preserve completed records and audit the approval.
+
+### C. Multi-day planned leave
+- A walker submits start date, end date, reason/category and any required supporting information under company policy.
+- Admin/Operations checks all affected occurrences across the entire date range, including all same-day slots on the first and last days.
+- Each occurrence must have eligible confirmed backup coverage or a recorded, policy-approved customer outcome. If any occurrence is uncovered, the leave remains pending unless an authorized Admin explicitly approves a documented exception and its safe customer/dog-care plan.
+- After approval, mark the walker unavailable for the approved date range and prevent new assignments during that range. Store the approver, decision timestamp, range, affected occurrence IDs, replacements/exceptions and communication outcomes.
+- A pending or rejected request must not remove assignments or mark the walker on leave.
+
+### D. Shared safeguards
+- Weekly-off preference/approval remains a separate recurring scheduling process; it is not a substitute for emergency, full-day or multi-day leave handling.
+- Auto-assignment must check walker eligibility, active status, area, time-slot availability, overlap and reasonable travel feasibility, with server-side atomic/idempotent assignment and an audit trail.
+- If auto-assignment cannot safely resolve coverage, Admin/Operations must decide. Never leave an occurrence silently unassigned.
+- Admin exceptions must identify the uncovered occurrence(s), reason, approver, timestamp and approved customer/dog-care outcome.
+- Customer notifications must state only confirmed changes. A leave/availability flag alone is not proof that coverage or dog custody has been resolved.
+
+### Acceptance checks
+1. Emergency reported mid-shift before dog pickup: auto-assign remaining walks where eligible; otherwise immediately escalate.
+2. Emergency reported during an active walk: future walks may be reassigned, but active dog custody is resolved separately and safely.
+3. Full-day leave request checks every assigned walk on that date before approval.
+4. Multi-day leave checks all occurrences across the entire requested range, including same-day walks at both ends.
+5. Any uncovered occurrence blocks routine approval until coverage/customer outcome is resolved or an explicit authorized Admin exception is recorded.
+6. Pending/rejected leave never silently removes assignments or changes the walker to unavailable.
+
+### Implementation status
+These distinct policies are now documented as requirements. The app/backend flows, leave UI, notifications, server-side assignment safeguards and automated tests still require implementation and verification.
