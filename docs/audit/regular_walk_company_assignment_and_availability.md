@@ -159,3 +159,35 @@ These are design requirements for cross-app reconciliation, not implemented prod
 13. **Testing and rollout:** add emulator/backend tests for unauthorized actions, concurrent leave approvals, overlap/capacity, backup failure, weather holds, idempotent alerts, rescheduling, and status transitions. Do not deploy rules, functions, indexes or migrate production until schema reconciliation and tests pass.
 
 **Status:** consolidated design recorded; no app code, Firestore data, security rules, backend functions or production settings were changed.
+
+
+## Sudden personal emergency and field-team leadership
+
+**Product requirement proposal; design only, not implemented.**
+
+### Sudden emergency: worker must leave immediately
+- Provide a one-tap **Emergency / I must leave now** report in the Partner app. A worker must not be trapped in an approval flow when an urgent family or personal emergency requires immediate departure.
+- Capture only the minimum needed: current time, affected assigned occurrence(s), broad reason category (personal/family/medical/other), optional note, and whether the worker is safe. Do not require detailed private family or medical information.
+- Immediately notify the central Operations/Admin team and the designated area/team lead. Mark the worker temporarily unavailable from the reported time pending review; prevent new assignments during that interval.
+- Show the affected walk(s) to Operations and trigger a coverage workflow: primary walker unavailable -> check same-area eligible backup -> check other approved available walker with feasible travel time -> if none, contact customer and apply approved reschedule/cancellation policy.
+- Do not silently cancel a booking or automatically mark it completed. Preserve the original assignee and record each replacement, reason, timestamp and actor.
+- If the emergency occurs during an active dog walk, prioritize immediate safety: the walker contacts Operations, follows the safe handover/return procedure, and does not leave the dog unattended. Operations arranges a safe handover to an authorized replacement/customer according to company policy.
+- Operations may review and classify the incident afterward; the field worker's urgent report itself should trigger immediate coverage handling. Repeated abuse can be reviewed separately and must not delay a genuine emergency response.
+
+### Proposed team structure: Area/Field Lead (not a substitute for company control)
+- **Company Operations/Admin:** owns policies, final leave decisions, staffing minimums, walker approvals, assignment authority, customer exceptions, and audit review.
+- **Area/Field Lead (proposed “Head Walker” role):** a trusted, approved senior field worker or supervisor for a defined service area/shift. Receives urgent alerts, helps coordinate safe handovers, checks attendance/coverage, and communicates field conditions to Operations.
+- **Field Walkers:** perform assigned walks, update attendance/status, report delays, hazards and leave/emergencies, and follow safety procedures.
+- Start with the clearer role name **Area Lead** or **Field Team Lead** rather than “Head Walker,” because it defines area/shift responsibility and avoids implying company-wide authority.
+- The Area Lead may coordinate and recommend a backup, but must not independently approve their own leave, override weather holds, change customer pricing, or permanently reassign bookings unless the company explicitly grants a narrowly scoped permission. All authoritative changes remain company-controlled and audited.
+- Provide a backup lead/on-call Operations contact so emergencies are handled outside one person's working hours. Do not assume the Area Lead is always online or available.
+
+### Required safeguards/tests
+- Emergency report works when worker has poor connectivity: save a pending report locally and retry; clearly indicate when the server confirms receipt. Provide an alternate company contact procedure if the app cannot connect.
+- One emergency alert per incident/occurrence through retries; do not duplicate reassignment jobs.
+- No new assignment after reported emergency start time unless Operations explicitly resolves/updates the availability interval.
+- Verify Area Lead can view only assigned service areas and cannot perform unauthorized Admin actions.
+- Active-walk emergency requires a recorded safe dog handover/return outcome before closure.
+- If no backup exists, raise a high-priority Operations queue item and customer communication; never pretend coverage is confirmed.
+
+**Implementation status:** requirements only; no application code, database, rules, functions, or Production settings changed.
