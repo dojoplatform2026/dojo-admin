@@ -1,0 +1,18 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:dojo_admin/features/service_location/services/lgd_staging_parser.dart';
+const states='\uFEFFS.No.,State Code,State Version,State Name (In English),State Name (In Local),Census 2001 Code,Census 2011 Code,State or UT\n1,09,1,Uttar Pradesh,उत्तर प्रदेश,09,09,S';
+const districts='state_code,state_name_english,state_name_local,state_census2011_code,district_code,district_name_english,district_name_local,district_census2011_code\n09,Uttar Pradesh,उत्तर प्रदेश,09,001,Gautam Buddha Nagar,गौतम बुद्ध नगर,001';
+const subs='state_code,state_name_english,district_code,district_name_english,sub_district_code,sub_district_name_english,sub_district_name_local,sub_district_census2011_code\n09,Uttar Pradesh,001,Gautam Buddha Nagar,0007,Greater Noida,ग्रेटर नोएडा,0007';
+void main(){group('LgdStagingParser',(){final p=LgdStagingParser();LgdStageResult run({String s=states,String d=districts,String u=subs})=>p.parse(statesCsv:s,districtsCsv:d,subDistrictsCsv:u);
+test('preserves leading zeros and emits JSONL',(){final r=run();expect(r.isValid,isTrue,reason:r.errors.join('\n'));expect(r.records.map((x)=>x.code),['09','001','0007']);expect(r.records.last.identity,'LGD|sub_district|0007');expect(r.jsonLines,contains('"schemaVersion":1'));});
+test('missing local name is warning only',(){final r=run(d:districts.replaceFirst('Gautam Buddha Nagar,गौतम बुद्ध नगर,001','Gautam Buddha Nagar,,001'));expect(r.isValid,isTrue);expect(r.warnings.join('\n'),contains('local-language name missing'));});
+test('rejects empty and duplicate headers',(){expect(run(s:'State Code,,State Name (In English)\n09,x,UP').jsonLines,isNull);expect(run(s:'State Code,state_code,State Name (In English)\n09,09,UP').errors.join('\n'),contains('duplicate headers'));});
+test('rejects wrong row width',(){final r=run(d:'$districts,EXTRA');expect(r.errors.join('\n'),contains('expected 8 fields'));expect(r.jsonLines,isNull);});
+test('rejects duplicate source codes',(){final r=run(s:'$states\n2,09,1,Duplicate,Duplicate,09,09,S');expect(r.errors.join('\n'),contains('Duplicate source identity: LGD|state|09'));});
+test('rejects missing state parent',(){final r=run(d:districts.replaceFirst('09,Uttar Pradesh','99,Uttar Pradesh'));expect(r.errors.join('\n'),contains('state parent 99 does not exist'));});
+test('rejects missing district parent',(){final r=run(u:subs.replaceFirst(',001,Gautam Buddha Nagar',',999,Gautam Buddha Nagar'));expect(r.errors.join('\n'),contains('district parent 999 does not exist'));});
+test('rejects inconsistent state parent',(){final r=run(u:subs.replaceFirst('09,Uttar Pradesh','10,Uttar Pradesh'));expect(r.errors.join('\n'),contains('does not match district parent state 09'));});
+test('supports commas, escaped quotes and multiline fields',(){final r=run(s:'State Code,State Name (In English),State Name (In Local)\n09,"Uttar Pradesh, ""UP""","line one\nline two"');expect(r.isValid,isTrue,reason:r.errors.join('\n'));expect(r.records.first.english,'Uttar Pradesh, "UP"');expect(r.records.first.local,'line one\nline two');});
+test('hashes and output are deterministic',(){final a=run(),b=run();expect(a.jsonLines,b.jsonLines);expect(a.outputSha256,b.outputSha256);expect(a.files.first.hash,isNot(run(s:states.replaceFirst('Uttar Pradesh','UP')).files.first.hash));});
+test('fails closed on malformed quoting',(){final r=run(u:'state_code,sub_district_code,sub_district_name_english\n09,"0007,Greater Noida');expect(r.isValid,isFalse);expect(r.jsonLines,isNull);expect(r.records,isEmpty);});
+});}

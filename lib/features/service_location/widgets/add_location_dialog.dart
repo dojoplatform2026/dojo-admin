@@ -166,6 +166,33 @@ class _AddLocationDialogState extends State<AddLocationDialog> {
     }
   }
 
+  Widget _dropdownStatus(String message, {bool loading = false}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        children: [
+          if (loading) ...[
+            const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            const SizedBox(width: 10),
+          ],
+          Expanded(
+            child: Text(
+              message,
+              style: TextStyle(
+                color: loading ? Colors.black54 : Colors.red.shade700,
+                fontSize: 13,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _dropdown<T>({
     required String label,
     required T? value,
@@ -175,7 +202,7 @@ class _AddLocationDialogState extends State<AddLocationDialog> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: DropdownButtonFormField<T>(
-        value: value,
+        initialValue: value,
         isExpanded: true,
         decoration: InputDecoration(
           labelText: label,
@@ -196,15 +223,13 @@ class _AddLocationDialogState extends State<AddLocationDialog> {
       stream: widget.service.watchCountries(),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
-          return _dropdown<String>(
-            label: 'Country',
-            value: null,
-            items: const [],
-            onChanged: (_) {},
-          );
+          return _dropdownStatus('Unable to load countries: ${snapshot.error}');
+        }
+        if (!snapshot.hasData) {
+          return _dropdownStatus('Loading countries…', loading: true);
         }
 
-        final countries = snapshot.data ?? [];
+        final countries = snapshot.data!;
 
         return _dropdown<String>(
           label: 'Country',
@@ -245,7 +270,13 @@ class _AddLocationDialogState extends State<AddLocationDialog> {
     return StreamBuilder<List<ServiceState>>(
       stream: widget.service.watchStates(countryId: _countryId!),
       builder: (context, snapshot) {
-        final states = snapshot.data ?? [];
+        if (snapshot.hasError) {
+          return _dropdownStatus('Unable to load states: ${snapshot.error}');
+        }
+        if (!snapshot.hasData) {
+          return _dropdownStatus('Loading states…', loading: true);
+        }
+        final states = snapshot.data!;
 
         return _dropdown<String>(
           label: 'State',
@@ -286,7 +317,13 @@ class _AddLocationDialogState extends State<AddLocationDialog> {
         stateId: _stateId,
       ),
       builder: (context, snapshot) {
-        final cities = snapshot.data ?? [];
+        if (snapshot.hasError) {
+          return _dropdownStatus('Unable to load cities/districts: ${snapshot.error}');
+        }
+        if (!snapshot.hasData) {
+          return _dropdownStatus('Loading cities/districts…', loading: true);
+        }
+        final cities = snapshot.data!;
 
         return _dropdown<String>(
           label: 'City / District',
@@ -323,7 +360,13 @@ class _AddLocationDialogState extends State<AddLocationDialog> {
     return StreamBuilder<List<ServiceArea>>(
       stream: widget.service.watchAreas(cityId: _cityId!),
       builder: (context, snapshot) {
-        final areas = snapshot.data ?? [];
+        if (snapshot.hasError) {
+          return _dropdownStatus('Unable to load areas/sub-districts: ${snapshot.error}');
+        }
+        if (!snapshot.hasData) {
+          return _dropdownStatus('Loading areas/sub-districts…', loading: true);
+        }
+        final areas = snapshot.data!;
 
         return _dropdown<String>(
           label: 'Area / Sub-district',
@@ -357,7 +400,7 @@ class _AddLocationDialogState extends State<AddLocationDialog> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 DropdownButtonFormField<int>(
-                  value: _level,
+                  initialValue: _level,
                   isExpanded: true,
                   decoration: const InputDecoration(
                     labelText: 'Location type',

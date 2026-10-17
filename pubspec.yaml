@@ -9,11 +9,13 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  file_picker: ^10.3.7
 
   # Firebase
   firebase_core: ^4.2.0
   firebase_auth: ^6.1.0
   cloud_firestore: ^6.0.3
+  cloud_functions: ^6.0.3
   firebase_storage: ^13.0.3
 
   # Maps and Networking

@@ -1,9 +1,12 @@
 import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:crypto/crypto.dart';
 
 import '../models/service_location_models.dart';
+import 'service_location_geometry.dart';
 
 /// ===========================================================
 /// DOJO WALK ADMIN
@@ -23,10 +26,37 @@ import '../models/service_location_models.dart';
 
 class ServiceLocationService {
   final FirebaseFirestore _firestore;
+  final FirebaseFunctions _functions;
 
   ServiceLocationService({
     FirebaseFirestore? firestore,
-  }) : _firestore = firestore ?? FirebaseFirestore.instance;
+    FirebaseFunctions? functions,
+  })  : _firestore = firestore ?? FirebaseFirestore.instance,
+        _functions = functions ?? FirebaseFunctions.instanceFor(region: 'asia-south1');
+
+  Future<void> _setTrustedStatus({
+    required String locationType,
+    required String locationId,
+    required bool isActive,
+  }) async {
+    final callable = _functions.httpsCallable('setServiceLocationStatus');
+    await callable.call<void>({
+      'locationType': locationType,
+      'locationId': locationId,
+      'isActive': isActive,
+    });
+  }
+
+  Future<void> _activateTrustedBoundaryLocation({
+    required String locationType,
+    required String locationId,
+  }) async {
+    final callable = _functions.httpsCallable('activateServiceLocation');
+    await callable.call<void>({
+      'locationType': locationType,
+      'locationId': locationId,
+    });
+  }
 
   // ==========================================================
   // COLLECTIONS
@@ -404,14 +434,6 @@ class ServiceLocationService {
     }
   }
 
-  Future<void> _requireExistingForUpdate(
-    CollectionReference<Map<String, dynamic>> collection,
-    String id,
-    String label,
-  ) async {
-    await _requireDocument(collection, id, label);
-  }
-
   Future<bool> _hasActiveChild({
     required String parentCollection,
     required String parentId,
@@ -463,55 +485,6 @@ class ServiceLocationService {
     )) {
       throw StateError(
         'Deactivate active child locations before deactivating $label.',
-      );
-    }
-  }
-
-  Future<void> _ensureNoChildrenForReparent({
-    required String parentCollection,
-    required String parentId,
-    required String label,
-  }) async {
-    Query<Map<String, dynamic>> query;
-
-    switch (parentCollection) {
-      case 'service_countries':
-        query = _states.where(
-          'countryId',
-          isEqualTo: parentId,
-        );
-        break;
-
-      case 'service_states':
-        query = _cities.where(
-          'stateId',
-          isEqualTo: parentId,
-        );
-        break;
-
-      case 'service_cities':
-        query = _areas.where(
-          'cityId',
-          isEqualTo: parentId,
-        );
-        break;
-
-      case 'service_areas':
-        query = _localities.where(
-          'areaId',
-          isEqualTo: parentId,
-        );
-        break;
-
-      default:
-        return;
-    }
-
-    final result = await query.limit(1).get();
-
-    if (result.docs.isNotEmpty) {
-      throw StateError(
-        'Cannot move this $label while child locations exist.',
       );
     }
   }
@@ -597,6 +570,36 @@ class ServiceLocationService {
     return boundaryId;
   }
 
+  Future<List<GeoPoint>> _requireVerifiedBoundaryPoints({
+    required String boundaryId,
+    required String locationId,
+    required String locationType,
+  }) async {
+    final id = _required(boundaryId, 'Verified boundary ID');
+    final snapshot = await _boundaries.doc(id).get();
+
+    if (!snapshot.exists) {
+      throw StateError('The verified $locationType boundary was not found.');
+    }
+
+    final data = snapshot.data()!;
+    if (data['locationId']?.toString() != locationId ||
+        data['locationType']?.toString().toLowerCase() !=
+            locationType.toLowerCase() ||
+        data['verificationStatus'] != 'verified') {
+      throw StateError(
+        'The selected boundary is not verified for this $locationType.',
+      );
+    }
+
+    final points = _readPoints(data['points']);
+    if (!_hasValidPolygon(points)) {
+      throw StateError('The verified $locationType boundary polygon is invalid.');
+    }
+
+    return points;
+  }
+
   // ==========================================================
   // COUNTRIES
   // ==========================================================
@@ -621,6 +624,10 @@ class ServiceLocationService {
     ServiceCountry country,
   ) async {
     final name = _required(country.name, 'Country name');
+
+    if (country.id.trim().isEmpty && country.isActive) {
+      throw StateError('Create a Country as inactive, then activate it separately.');
+    }
 
     final code = _required(country.code, 'Country code')
         .toUpperCase();
@@ -663,10 +670,11 @@ class ServiceLocationService {
       );
     }
 
-    await _countries.doc(id).update({
-      'isActive': isActive,
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
+    await _setTrustedStatus(
+      locationType: 'country',
+      locationId: id,
+      isActive: isActive,
+    );
   }
 
   // ==========================================================
@@ -707,15 +715,26 @@ class ServiceLocationService {
 
     final name = _required(state.name, 'State name');
 
+    if (state.id.trim().isEmpty && state.isActive) {
+      throw StateError('Create a State as inactive, then activate it separately.');
+    }
+
     await _requireDocument(
       _countries,
       countryId,
       'Country',
     );
 
-    final id = state.id.trim().isEmpty
-        ? _states.doc().id
-        : state.id.trim();
+    final oldId = state.id.trim();
+    final id = oldId.isEmpty ? _states.doc().id : oldId;
+
+    if (oldId.isNotEmpty) {
+      final existing = await _states.doc(id).get();
+      if (existing.exists &&
+          existing.data()?['countryId']?.toString() != countryId) {
+        throw StateError('A State parent cannot be changed after creation. Create a new State under the correct Country.');
+      }
+    }
 
     await _saveUniqueNamedDocument(
       collection: _states,
@@ -755,10 +774,11 @@ class ServiceLocationService {
       );
     }
 
-    await _states.doc(id).update({
-      'isActive': isActive,
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
+    await _setTrustedStatus(
+      locationType: 'state',
+      locationId: id,
+      isActive: isActive,
+    );
   }
 
   // ==========================================================
@@ -847,6 +867,10 @@ class ServiceLocationService {
 
     final oldId = city.id.trim();
 
+    if (oldId.isEmpty && city.isServiceActive) {
+      throw StateError('Create a City as inactive; verify its boundary before activation.');
+    }
+
     final id = oldId.isEmpty ? _cities.doc().id : oldId;
 
     await _requireDocument(
@@ -885,15 +909,11 @@ class ServiceLocationService {
     if (existingSnapshot.exists) {
       final oldData = existingSnapshot.data()!;
 
-      final oldStateId =
-          oldData['stateId']?.toString() ?? '';
+      final oldCountryId = oldData['countryId']?.toString() ?? '';
+      final oldStateId = oldData['stateId']?.toString() ?? '';
 
-      if (oldStateId != stateId) {
-        await _ensureNoChildrenForReparent(
-          parentCollection: 'service_cities',
-          parentId: id,
-          label: 'city',
-        );
+      if (oldCountryId != countryId || oldStateId != stateId) {
+        throw StateError('A City parent cannot be changed after creation. Create a new City under the correct State.');
       }
     }
 
@@ -927,8 +947,6 @@ class ServiceLocationService {
       'City',
     );
 
-    String? verifiedBoundaryId;
-
     if (isActive) {
       final countryId =
           city['countryId']?.toString() ?? '';
@@ -940,7 +958,7 @@ class ServiceLocationService {
 
       await _requireActiveState(stateId, countryId);
 
-      verifiedBoundaryId = await _requireVerifiedBoundary(
+      await _requireVerifiedBoundary(
         locationId: id,
         locationType: 'city',
       );
@@ -952,16 +970,18 @@ class ServiceLocationService {
       );
     }
 
-    final update = <String, dynamic>{
-      'isServiceActive': isActive,
-      'updatedAt': FieldValue.serverTimestamp(),
-    };
-
-    if (verifiedBoundaryId != null) {
-      update['verifiedBoundaryId'] = verifiedBoundaryId;
+    if (isActive) {
+      await _activateTrustedBoundaryLocation(
+        locationType: 'city',
+        locationId: id,
+      );
+    } else {
+      await _setTrustedStatus(
+        locationType: 'city',
+        locationId: id,
+        isActive: false,
+      );
     }
-
-    await _cities.doc(id).update(update);
   }
 
   // ==========================================================
@@ -1025,6 +1045,10 @@ class ServiceLocationService {
 
     final oldId = area.id.trim();
 
+    if (oldId.isEmpty && area.isServiceActive) {
+      throw StateError('Create an Area as inactive; verify its boundary before activation.');
+    }
+
     final id = oldId.isEmpty ? _areas.doc().id : oldId;
 
     final cityData = await _requireDocument(
@@ -1061,6 +1085,33 @@ class ServiceLocationService {
         locationId: id,
         locationType: 'area',
       );
+
+      final city = await _requireDocument(
+        _cities,
+        cityId,
+        'City',
+      );
+      final cityBoundaryId =
+          city['verifiedBoundaryId']?.toString().trim() ?? '';
+      final cityBoundaryPoints = await _requireVerifiedBoundaryPoints(
+        boundaryId: cityBoundaryId,
+        locationId: cityId,
+        locationType: 'city',
+      );
+      final areaBoundaryPoints = await _requireVerifiedBoundaryPoints(
+        boundaryId: verifiedBoundaryId,
+        locationId: id,
+        locationType: 'area',
+      );
+
+      if (!ServiceLocationGeometry.isPolygonContained(
+        parent: cityBoundaryPoints,
+        child: areaBoundaryPoints,
+      )) {
+        throw StateError(
+          'The Area boundary must be fully inside or on the parent City boundary.',
+        );
+      }
     }
 
     final existingSnapshot = await _areas.doc(id).get();
@@ -1068,15 +1119,12 @@ class ServiceLocationService {
     if (existingSnapshot.exists) {
       final oldData = existingSnapshot.data()!;
 
-      final oldCityId =
-          oldData['cityId']?.toString() ?? '';
+      final oldCountryId = oldData['countryId']?.toString() ?? '';
+      final oldStateId = oldData['stateId']?.toString() ?? '';
+      final oldCityId = oldData['cityId']?.toString() ?? '';
 
-      if (oldCityId != cityId) {
-        await _ensureNoChildrenForReparent(
-          parentCollection: 'service_areas',
-          parentId: id,
-          label: 'area',
-        );
+      if (oldCountryId != countryId || oldStateId != stateId || oldCityId != cityId) {
+        throw StateError('An Area parent cannot be changed after creation. Create a new Area under the correct City.');
       }
     }
 
@@ -1111,8 +1159,6 @@ class ServiceLocationService {
       'Area',
     );
 
-    String? verifiedBoundaryId;
-
     if (isActive) {
       final countryId =
           area['countryId']?.toString() ?? '';
@@ -1129,7 +1175,7 @@ class ServiceLocationService {
 
       await _requireActiveCity(cityId, stateId);
 
-      verifiedBoundaryId = await _requireVerifiedBoundary(
+      await _requireVerifiedBoundary(
         locationId: id,
         locationType: 'area',
       );
@@ -1141,16 +1187,18 @@ class ServiceLocationService {
       );
     }
 
-    final update = <String, dynamic>{
-      'isServiceActive': isActive,
-      'updatedAt': FieldValue.serverTimestamp(),
-    };
-
-    if (verifiedBoundaryId != null) {
-      update['verifiedBoundaryId'] = verifiedBoundaryId;
+    if (isActive) {
+      await _activateTrustedBoundaryLocation(
+        locationType: 'area',
+        locationId: id,
+      );
+    } else {
+      await _setTrustedStatus(
+        locationType: 'area',
+        locationId: id,
+        isActive: false,
+      );
     }
-
-    await _areas.doc(id).update(update);
   }
 
   // ==========================================================
@@ -1231,6 +1279,10 @@ class ServiceLocationService {
 
     final oldId = locality.id.trim();
 
+    if (oldId.isEmpty && locality.isServiceActive) {
+      throw StateError('Create a Locality as inactive, then activate it separately.');
+    }
+
     final id = oldId.isEmpty
         ? _localities.doc().id
         : oldId;
@@ -1287,15 +1339,13 @@ class ServiceLocationService {
     if (existingSnapshot.exists) {
       final oldData = existingSnapshot.data()!;
 
-      final oldAreaId =
-          oldData['areaId']?.toString() ?? '';
+      final oldCountryId = oldData['countryId']?.toString() ?? '';
+      final oldStateId = oldData['stateId']?.toString() ?? '';
+      final oldCityId = oldData['cityId']?.toString() ?? '';
+      final oldAreaId = oldData['areaId']?.toString() ?? '';
 
-      if (oldAreaId != areaId) {
-        await _ensureNoChildrenForReparent(
-          parentCollection: 'service_localities',
-          parentId: id,
-          label: 'locality',
-        );
+      if (oldCountryId != countryId || oldStateId != stateId || oldCityId != cityId || oldAreaId != areaId) {
+        throw StateError('A Locality parent cannot be changed after creation. Create a new Locality under the correct Area.');
       }
     }
 
@@ -1357,11 +1407,12 @@ class ServiceLocationService {
       await _requireActiveArea(areaId, cityId);
     }
 
-    // No locality polygon requirement.
-    await _localities.doc(id).update({
-      'isServiceActive': isActive,
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
+    // No locality polygon requirement; the server validates ancestry.
+    await _setTrustedStatus(
+      locationType: 'locality',
+      locationId: id,
+      isActive: isActive,
+    );
   }
 
   // ==========================================================
@@ -1387,6 +1438,16 @@ class ServiceLocationService {
   Future<String> saveImport(
     ServiceLocationImport importRecord,
   ) async {
+    final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+
+    if (currentUserId == null || currentUserId.trim().isEmpty) {
+      throw StateError('Sign in as an admin before recording an import.');
+    }
+
+    if (importRecord.importedBy.trim() != currentUserId) {
+      throw StateError('The import actor must match the signed-in admin.');
+    }
+
     final id = importRecord.id.trim().isEmpty
         ? _imports.doc().id
         : importRecord.id.trim();
@@ -1406,10 +1467,7 @@ class ServiceLocationService {
         importRecord.status,
         'Import status',
       ),
-      'importedBy': _required(
-        importRecord.importedBy,
-        'Importer ID',
-      ),
+      'importedBy': currentUserId,
       'importedAt': FieldValue.serverTimestamp(),
       'verificationStatus': _required(
         importRecord.verificationStatus,

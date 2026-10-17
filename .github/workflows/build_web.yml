@@ -2,20 +2,35 @@ name: DOJO WALK Admin Web Deploy
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
+    inputs:
+      confirmation:
+        description: "Type DEPLOY_DOJO_ADMIN_LIVE to authorize a live Hosting deployment"
+        required: true
+        type: string
+      target_project:
+        description: "Must match the intended Firebase project ID"
+        required: true
+        type: string
 
 permissions:
   contents: read
 
+concurrency:
+  group: dojo-admin-live-hosting-deploy
+  cancel-in-progress: false
+
 jobs:
   build-and-deploy:
+    if: ${{ github.ref == 'refs/heads/main' && inputs.confirmation == 'DEPLOY_DOJO_ADMIN_LIVE' && inputs.target_project == 'dojo-platform-b68a3' }}
     runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 25
 
     steps:
-      - name: Checkout repository
+      - name: Checkout main
         uses: actions/checkout@v4
+        with:
+          ref: main
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
